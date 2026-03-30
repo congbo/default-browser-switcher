@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import DefaultBrowserSwitcher
 
@@ -17,6 +18,24 @@ final class AppShellSmokeTests: XCTestCase {
             .environmentObject(store)
             .environmentObject(BrowserIconProvider.shared)
             .environmentObject(launchAtLoginService)
+    }
+
+    func testStandardAboutPanelOptionsExposeApplicationNameAndProjectCredits() throws {
+        let options = StandardAboutPanelConfiguration.options(applicationName: "Test Browser Switcher")
+
+        XCTAssertEqual(
+            options[.applicationName] as? String,
+            "Test Browser Switcher"
+        )
+
+        let credits = try XCTUnwrap(options[.credits] as? NSAttributedString)
+        XCTAssertEqual(credits.string, StandardAboutPanelConfiguration.projectURL.absoluteString)
+        let fullRange = NSRange(location: 0, length: credits.length)
+        let linkValue = credits.attribute(.link, at: 0, effectiveRange: nil) as? URL
+
+        XCTAssertEqual(linkValue, StandardAboutPanelConfiguration.projectURL)
+        XCTAssertNotNil(credits.attribute(.underlineStyle, at: 0, effectiveRange: nil))
+        XCTAssertNotNil(credits.attribute(.paragraphStyle, at: fullRange.location, effectiveRange: nil))
     }
 }
 

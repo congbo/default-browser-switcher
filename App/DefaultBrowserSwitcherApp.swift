@@ -47,6 +47,7 @@ struct DefaultBrowserSwitcherApp: App {
             )
             .environmentObject(iconProvider)
         }
+        .menuBarExtraStyle(.menu)
 
         Settings {
             SettingsView()
@@ -90,15 +91,17 @@ private struct StatusItemLabel: View {
             } else {
                 switch presentation.statusItem.iconSource {
                 case let .browser(applicationURL):
-                    Image(nsImage: iconProvider.icon(for: applicationURL))
-                        .resizable()
-                        .frame(width: 18, height: 18)
-                        .clipShape(.rect(cornerRadius: 4))
+                    BrowserAppIconView(
+                        image: iconProvider.icon(for: applicationURL, size: 18),
+                        size: 18,
+                        cornerRadius: 4
+                    )
                 case .neutral:
-                    Image(nsImage: iconProvider.neutralIcon())
-                        .resizable()
-                        .frame(width: 18, height: 18)
-                        .clipShape(.rect(cornerRadius: 4))
+                    BrowserAppIconView(
+                        image: iconProvider.neutralIcon(size: 18),
+                        size: 18,
+                        cornerRadius: 4
+                    )
                 }
             }
         }

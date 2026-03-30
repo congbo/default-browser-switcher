@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import CoreGraphics
 
 @MainActor
 final class BrowserIconProvider: ObservableObject {
@@ -25,17 +26,39 @@ final class BrowserIconProvider: ObservableObject {
         return icon
     }
 
+    func icon(for applicationURL: URL, size: CGFloat) -> NSImage {
+        let baseIcon = icon(for: applicationURL)
+        let icon = baseIcon.copy() as? NSImage ?? baseIcon
+        icon.size = NSSize(width: size, height: size)
+        return icon
+    }
+
     func neutralIcon() -> NSImage {
         let bundlePath = Bundle.main.bundleURL.path
         return icon(for: URL(fileURLWithPath: bundlePath))
+    }
+
+    func neutralIcon(size: CGFloat) -> NSImage {
+        let baseIcon = neutralIcon()
+        let icon = baseIcon.copy() as? NSImage ?? baseIcon
+        icon.size = NSSize(width: size, height: size)
+        return icon
     }
 
     func icon(for application: BrowserApplication) -> NSImage {
         icon(for: application.applicationURL)
     }
 
+    func icon(for application: BrowserApplication, size: CGFloat) -> NSImage {
+        icon(for: application.applicationURL, size: size)
+    }
+
     func icon(for candidate: BrowserCandidate) -> NSImage {
         icon(for: candidate.applicationURL)
+    }
+
+    func icon(for candidate: BrowserCandidate, size: CGFloat) -> NSImage {
+        icon(for: candidate.applicationURL, size: size)
     }
 
     func resetCache() {

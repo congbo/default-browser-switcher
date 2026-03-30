@@ -2,6 +2,11 @@ import AppKit
 import SwiftUI
 
 struct MenuBarContentView: View {
+    fileprivate enum Layout {
+        static let menuIconSize: CGFloat = 32
+        static let menuIconCornerRadius: CGFloat = 7
+    }
+
     @EnvironmentObject private var store: BrowserDiscoveryStore
     @EnvironmentObject private var iconProvider: BrowserIconProvider
 
@@ -10,69 +15,29 @@ struct MenuBarContentView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            header
-
-            if let statusText = presentation.statusMessageText {
-                Text(verbatim: statusText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Divider()
-
+        Group {
             candidateSection
 
-            if presentation.showRefreshInMenu {
-                Divider()
+            Divider()
 
-                Button(String(localized: "menu.refresh")) {
-                    Task {
-                        await store.refresh()
-                    }
-                }
-                .disabled(store.phase == .refreshing || store.switchPhase == .switching)
-            }
+            aboutButton
 
             Divider()
 
-            Button(DefaultBrowserSwitcherApp.settingsTitle) {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            Button(String(localized: "menu.refresh")) {
+                Task {
+                    await store.refresh()
+                }
             }
+            .disabled(store.phase == .refreshing || store.switchPhase == .switching)
 
             Button(String(localized: "menu.quit")) {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q")
         }
-        .padding(12)
-        .frame(minWidth: 300)
         .task {
             await store.bootstrapIfNeeded()
-        }
-    }
-
-    private var header: some View {
-        HStack(spacing: 8) {
-            if let currentBrowser = presentation.currentBrowser {
-                Image(nsImage: iconProvider.icon(for: currentBrowser.application))
-                    .resizable()
-                    .frame(width: 18, height: 18)
-                    .clipShape(.rect(cornerRadius: 4))
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Default browser")
-                        .font(.headline)
-                    Text(verbatim: currentBrowser.application.resolvedDisplayName)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Text("Default browser")
-                    .font(.headline)
-            }
         }
     }
 
@@ -80,25 +45,98 @@ struct MenuBarContentView: View {
     private var candidateSection: some View {
         if presentation.pickerBrowsers.isEmpty {
             Text(presentation.settingsPickerPlaceholder)
-                .foregroundStyle(.secondary)
+                .disabled(true)
         } else {
             ForEach(presentation.pickerBrowsers) { row in
-                if row.actionState == .switchable {
-                    Button {
-                        Task {
-                            await store.switchToBrowser(row.candidate)
-                        }
-                    } label: {
-                        BrowserMenuRow(row: row)
-                            .environmentObject(iconProvider)
-                    }
-                    .buttonStyle(.plain)
-                } else {
+                Toggle(isOn: selectionBinding(for: row)) {
                     BrowserMenuRow(row: row)
                         .environmentObject(iconProvider)
                 }
+                .disabled(row.actionState != .switchable)
             }
         }
+    }
+
+    private var aboutButton: some View {
+        Button(StandardAboutPanelConfiguration.menuTitle) {
+            StandardAboutPanelConfiguration.present()
+        }
+    }
+
+    private func selectionBinding(for row: BrowserPresentation.Candidate) -> Binding<Bool> {
+        Binding(
+            get: { row.actionState == .currentSelection },
+            set: { isSelected in
+                guard isSelected, row.actionState == .switchable else {
+                    return
+                }
+
+                Task {
+                    await store.switchToBrowser(row.candidate)
+                }
+            }
+        )
+    }
+}
+
+struct StandardAboutPanelConfiguration {
+    static let menuTitle = "About"
+    static let projectURL = URL(string: "https://github.com/congbo/default-browser-switcher")!
+
+    @MainActor
+    static func present() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: options())
+    }
+
+    static func options(applicationName: String = applicationName()) -> [NSApplication.AboutPanelOptionKey: Any] {
+        [
+            .applicationName: applicationName,
+            .credits: credits()
+        ]
+    }
+
+    static func credits(projectURL: URL = projectURL) -> NSAttributedString {
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+
+        let urlString = projectURL.absoluteString
+        let attributedString = NSMutableAttributedString(
+            string: urlString,
+            attributes: [
+                .paragraphStyle: paragraphStyle
+            ]
+        )
+        let urlRange = NSRange(urlString.startIndex..<urlString.endIndex, in: urlString)
+        attributedString.addAttributes(
+            [
+                .link: projectURL,
+                .foregroundColor: NSColor.linkColor,
+                .underlineStyle: NSUnderlineStyle.single.rawValue
+            ],
+            range: urlRange
+        )
+        return attributedString
+    }
+
+    static func applicationName(bundle: Bundle = .main) -> String {
+        (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+            ?? (bundle.object(forInfoDictionaryKey: kCFBundleNameKey as String) as? String)
+            ?? ProcessInfo.processInfo.processName
+    }
+}
+
+struct BrowserAppIconView: View {
+    let image: NSImage
+    let size: CGFloat
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        Image(nsImage: image)
+            .resizable()
+            .interpolation(.high)
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 
@@ -108,29 +146,15 @@ private struct BrowserMenuRow: View {
     let row: BrowserPresentation.Candidate
 
     var body: some View {
-        HStack(spacing: 10) {
-            Group {
-                if row.actionState == .currentSelection {
-                    Image(systemName: "checkmark")
-                } else {
-                    Color.clear
-                }
-            }
-            .frame(width: 12, height: 12)
-            .foregroundStyle(Color.accentColor)
-
-            Image(nsImage: iconProvider.icon(for: row.candidate))
-                .resizable()
-                .frame(width: 16, height: 16)
-                .clipShape(.rect(cornerRadius: 4))
-                .accessibilityHidden(true)
-
+        Label {
             Text(verbatim: row.candidate.resolvedDisplayName)
-                .foregroundStyle(row.actionState == .disabled(.switchInProgress) ? .secondary : .primary)
-
-            Spacer(minLength: 0)
+        } icon: {
+            BrowserAppIconView(
+                image: iconProvider.icon(for: row.candidate, size: MenuBarContentView.Layout.menuIconSize),
+                size: MenuBarContentView.Layout.menuIconSize,
+                cornerRadius: MenuBarContentView.Layout.menuIconCornerRadius
+            )
         }
-        .padding(.vertical, 2)
-        .contentShape(Rectangle())
+        .foregroundStyle(row.actionState == .disabled(.switchInProgress) ? .secondary : .primary)
     }
 }
