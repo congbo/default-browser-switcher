@@ -28,3 +28,7 @@ coverage/
 tmp/
 .superpowers
 
+# Xcode user-local state
+DerivedData/
+*.xcuserstate
+**/xcuserdata/
