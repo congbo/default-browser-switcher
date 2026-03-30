@@ -42,6 +42,70 @@ final class BrowserDiscoveryNormalizationTests: XCTestCase {
         XCTAssertEqual(helperCandidate?.supportedSchemes, [.http, .https])
         XCTAssertEqual(helperCandidate?.applicationURL.path, "/Applications/Browser Helper.app")
     }
+
+    func testNormalizedSnapshotFiltersNestedApplicationBundlesFromCandidates() {
+        let outerAtlas = BrowserApplication.fixture(
+            bundleIdentifier: "com.openai.atlas",
+            displayName: "ChatGPT Atlas",
+            path: "/Applications/ChatGPT Atlas.app"
+        )
+        let nestedAtlas = BrowserApplication.fixture(
+            bundleIdentifier: "com.openai.atlas.web",
+            displayName: "ChatGPT Atlas",
+            path: "/Applications/ChatGPT Atlas.app/Contents/Support/ChatGPT Atlas.app"
+        )
+
+        let snapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: nil,
+            currentHTTPSHandler: nil,
+            httpCandidates: [outerAtlas, nestedAtlas],
+            httpsCandidates: [outerAtlas, nestedAtlas],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_001_200)
+        )
+
+        XCTAssertEqual(snapshot.candidates.map(\.applicationURL.path), [outerAtlas.applicationURL.path])
+        XCTAssertEqual(snapshot.candidates.first?.bundleIdentifier, outerAtlas.bundleIdentifier)
+        XCTAssertEqual(snapshot.candidates.first?.supportedSchemes, [.http, .https])
+    }
+
+    func testNormalizedSnapshotDoesNotReintroduceNestedApplicationBundlesAfterCrossSchemeMerge() {
+        let nestedAtlas = BrowserApplication.fixture(
+            bundleIdentifier: "com.openai.atlas.web",
+            displayName: "ChatGPT Atlas",
+            path: "/Applications/ChatGPT Atlas.app/Contents/Support/ChatGPT Atlas.app"
+        )
+
+        let snapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: nil,
+            currentHTTPSHandler: nil,
+            httpCandidates: [nestedAtlas],
+            httpsCandidates: [nestedAtlas],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_001_300)
+        )
+
+        XCTAssertTrue(snapshot.candidates.isEmpty)
+    }
+
+    func testNormalizedSnapshotPreservesNestedCurrentHandlersWhileFilteringNestedCandidates() {
+        let nestedAtlas = BrowserApplication.fixture(
+            bundleIdentifier: "com.openai.atlas.web",
+            displayName: "ChatGPT Atlas",
+            path: "/Applications/ChatGPT Atlas.app/Contents/Support/ChatGPT Atlas.app"
+        )
+
+        let snapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: nestedAtlas,
+            currentHTTPSHandler: nestedAtlas,
+            httpCandidates: [nestedAtlas],
+            httpsCandidates: [nestedAtlas],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_001_400)
+        )
+
+        XCTAssertEqual(snapshot.currentHTTPHandler, nestedAtlas)
+        XCTAssertEqual(snapshot.currentHTTPSHandler, nestedAtlas)
+        XCTAssertEqual(snapshot.coherentCurrentBrowser, nestedAtlas)
+        XCTAssertTrue(snapshot.candidates.isEmpty)
+    }
 }
 
 private extension BrowserApplication {

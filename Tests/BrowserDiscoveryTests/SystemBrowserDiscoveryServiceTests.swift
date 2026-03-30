@@ -26,6 +26,43 @@ final class SystemBrowserDiscoveryServiceTests: XCTestCase {
         }
     }
 
+    func testFetchSnapshotFiltersNestedApplicationBundlesFromCandidates() async throws {
+        let fileManager = FileManager.default
+        let temporaryDirectory = fileManager.temporaryDirectory
+            .appendingPathComponent("SystemBrowserDiscoveryServiceTests-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer {
+            try? fileManager.removeItem(at: temporaryDirectory)
+        }
+
+        let outerAtlas = try makeApplicationBundle(
+            at: temporaryDirectory.appendingPathComponent("Applications/ChatGPT Atlas.app", isDirectory: true),
+            bundleIdentifier: "com.openai.atlas",
+            displayName: "ChatGPT Atlas"
+        )
+        let nestedAtlas = try makeApplicationBundle(
+            at: outerAtlas.appendingPathComponent("Contents/Support/ChatGPT Atlas.app", isDirectory: true),
+            bundleIdentifier: "com.openai.atlas.web",
+            displayName: "ChatGPT Atlas"
+        )
+
+        let workspace = FakeBrowserWorkspace(
+            currentHandlers: [.http: outerAtlas, .https: outerAtlas],
+            candidateURLs: [.http: [outerAtlas, nestedAtlas], .https: [outerAtlas, nestedAtlas]],
+            switchCompletionResults: [:],
+            postSwitchSnapshot: nil
+        )
+        let service = SystemBrowserDiscoveryService(workspace: workspace)
+
+        let snapshot = try await service.fetchSnapshot()
+
+        XCTAssertEqual(snapshot.currentHTTPHandler?.applicationURL.standardizedFileURL.path, outerAtlas.standardizedFileURL.path)
+        XCTAssertEqual(snapshot.currentHTTPSHandler?.applicationURL.standardizedFileURL.path, outerAtlas.standardizedFileURL.path)
+        XCTAssertEqual(snapshot.candidates.map(\.applicationURL.standardizedFileURL.path), [outerAtlas.standardizedFileURL.path])
+        XCTAssertEqual(snapshot.candidates.first?.bundleIdentifier, "com.openai.atlas")
+        XCTAssertEqual(snapshot.candidates.first?.supportedSchemes, [.http, .https])
+    }
+
     func testSwitchDefaultBrowserCapturesPerSchemeCompletionsAndVerifiedSuccess() async throws {
         let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
         let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
@@ -285,5 +322,22 @@ private extension BrowserCandidate {
             applicationURL: application.applicationURL,
             supportedSchemes: supportedSchemes
         )
+    }
+}
+
+private extension SystemBrowserDiscoveryServiceTests {
+    func makeApplicationBundle(at appURL: URL, bundleIdentifier: String, displayName: String) throws -> URL {
+        let contentsURL = appURL.appendingPathComponent("Contents", isDirectory: true)
+        try FileManager.default.createDirectory(at: contentsURL, withIntermediateDirectories: true)
+
+        let plist: [String: Any] = [
+            "CFBundleDisplayName": displayName,
+            "CFBundleIdentifier": bundleIdentifier,
+            "CFBundleName": displayName
+        ]
+        let plistData = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+        try plistData.write(to: contentsURL.appendingPathComponent("Info.plist"))
+
+        return appURL
     }
 }

@@ -26,6 +26,10 @@ struct BrowserApplication: Codable, Hashable, Identifiable {
         displayName?.trimmedNonEmpty ?? applicationURL.deletingPathExtension().lastPathComponent
     }
 
+    var isNestedApplicationBundle: Bool {
+        applicationURL.containsParentApplicationBundle
+    }
+
     func merged(with other: BrowserApplication) -> BrowserApplication {
         BrowserApplication(
             bundleIdentifier: bundleIdentifier?.trimmedNonEmpty ?? other.bundleIdentifier?.trimmedNonEmpty,
@@ -55,6 +59,10 @@ struct BrowserCandidate: Codable, Hashable, Identifiable {
 
     var resolvedDisplayName: String {
         displayName?.trimmedNonEmpty ?? applicationURL.deletingPathExtension().lastPathComponent
+    }
+
+    var isNestedApplicationBundle: Bool {
+        applicationURL.containsParentApplicationBundle
     }
 
     func supports(_ scheme: BrowserURLScheme) -> Bool {
@@ -146,7 +154,9 @@ struct BrowserDiscoverySnapshot: Codable, Hashable {
         return BrowserDiscoverySnapshot(
             currentHTTPHandler: currentHTTPHandler,
             currentHTTPSHandler: currentHTTPSHandler,
-            candidates: mergedCandidates.values.sorted(by: Self.sortCandidates),
+            candidates: mergedCandidates.values
+                .filter { !$0.isNestedApplicationBundle }
+                .sorted(by: Self.sortCandidates),
             refreshedAt: refreshedAt,
             issues: issues
         )
@@ -164,6 +174,14 @@ struct BrowserDiscoverySnapshot: Codable, Hashable {
 
 private func normalizedIdentifier(bundleIdentifier: String?, applicationURL: URL) -> String {
     bundleIdentifier?.trimmedNonEmpty ?? applicationURL.standardizedFileURL.path
+}
+
+private extension URL {
+    var containsParentApplicationBundle: Bool {
+        standardizedFileURL.pathComponents.dropLast().contains { component in
+            component.range(of: ".app", options: [.caseInsensitive, .anchored, .backwards]) != nil
+        }
+    }
 }
 
 private extension String {
