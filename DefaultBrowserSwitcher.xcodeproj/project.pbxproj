@@ -26,6 +26,14 @@
 		00000000000000000000007D /* LaunchAtLoginServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000007C /* LaunchAtLoginServiceTests.swift */; };
 		00000000000000000000007F /* LaunchAtLoginService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000007E /* LaunchAtLoginService.swift */; };
 		00000000000000000000007B /* BrowserIconProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000005F /* BrowserIconProvider.swift */; };
+		000000000000000000000082 /* BrowserSwitchMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000083 /* BrowserSwitchMode.swift */; };
+		000000000000000000000084 /* BrowserSwitchSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000085 /* BrowserSwitchSettings.swift */; };
+		000000000000000000000086 /* BrowserDiscoveryRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000087 /* BrowserDiscoveryRuntime.swift */; };
+		000000000000000000000088 /* LaunchServicesDirectBrowserDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000089 /* LaunchServicesDirectBrowserDiscoveryService.swift */; };
+		00000000000000000000008A /* SwitchModeBrowserDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000008B /* SwitchModeBrowserDiscoveryService.swift */; };
+		00000000000000000000008C /* BrowserSwitchSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000008D /* BrowserSwitchSettingsTests.swift */; };
+		00000000000000000000008E /* SwitchModeBrowserDiscoveryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000008F /* SwitchModeBrowserDiscoveryServiceTests.swift */; };
+		000000000000000000000096 /* LaunchServicesDirectBrowserDiscoveryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000097 /* LaunchServicesDirectBrowserDiscoveryServiceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,6 +68,14 @@
 		00000000000000000000005F /* BrowserIconProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Application/BrowserDiscovery/BrowserIconProvider.swift; sourceTree = "<group>"; };
 		00000000000000000000007C /* LaunchAtLoginServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginServiceTests.swift; sourceTree = "<group>"; };
 		00000000000000000000007E /* LaunchAtLoginService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Application/Startup/LaunchAtLoginService.swift; sourceTree = "<group>"; };
+		000000000000000000000083 /* BrowserSwitchMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Application/BrowserDiscovery/BrowserSwitchMode.swift; sourceTree = "<group>"; };
+		000000000000000000000085 /* BrowserSwitchSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Application/BrowserDiscovery/BrowserSwitchSettings.swift; sourceTree = "<group>"; };
+		000000000000000000000087 /* BrowserDiscoveryRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Application/BrowserDiscovery/BrowserDiscoveryRuntime.swift; sourceTree = "<group>"; };
+		000000000000000000000089 /* LaunchServicesDirectBrowserDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Application/BrowserDiscovery/LaunchServicesDirectBrowserDiscoveryService.swift; sourceTree = "<group>"; };
+		00000000000000000000008B /* SwitchModeBrowserDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Application/BrowserDiscovery/SwitchModeBrowserDiscoveryService.swift; sourceTree = "<group>"; };
+		00000000000000000000008D /* BrowserSwitchSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserSwitchSettingsTests.swift; sourceTree = "<group>"; };
+		00000000000000000000008F /* SwitchModeBrowserDiscoveryServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchModeBrowserDiscoveryServiceTests.swift; sourceTree = "<group>"; };
+		000000000000000000000097 /* LaunchServicesDirectBrowserDiscoveryServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchServicesDirectBrowserDiscoveryServiceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -106,7 +122,12 @@
 				000000000000000000000050 /* DefaultBrowserSwitcherApp.swift */,
 				000000000000000000000057 /* BrowserDiscoverySnapshot.swift */,
 				000000000000000000000058 /* BrowserDiscoveryService.swift */,
+				000000000000000000000083 /* BrowserSwitchMode.swift */,
+				000000000000000000000085 /* BrowserSwitchSettings.swift */,
+				000000000000000000000087 /* BrowserDiscoveryRuntime.swift */,
 				000000000000000000000059 /* SystemBrowserDiscoveryService.swift */,
+				000000000000000000000089 /* LaunchServicesDirectBrowserDiscoveryService.swift */,
+				00000000000000000000008B /* SwitchModeBrowserDiscoveryService.swift */,
 				00000000000000000000005A /* BrowserDiscoveryStore.swift */,
 				00000000000000000000005C /* BrowserSwitchResult.swift */,
 				00000000000000000000005E /* BrowserPresentation.swift */,
@@ -160,6 +181,9 @@
 				000000000000000000000056 /* BrowserDiscoveryStoreTests.swift */,
 				00000000000000000000005D /* BrowserPresentationTests.swift */,
 				00000000000000000000007C /* LaunchAtLoginServiceTests.swift */,
+				00000000000000000000008D /* BrowserSwitchSettingsTests.swift */,
+				00000000000000000000008F /* SwitchModeBrowserDiscoveryServiceTests.swift */,
+				000000000000000000000097 /* LaunchServicesDirectBrowserDiscoveryServiceTests.swift */,
 			);
 			path = BrowserDiscoveryTests;
 			sourceTree = "<group>";
@@ -266,7 +290,12 @@
 				000000000000000000000060 /* DefaultBrowserSwitcherApp.swift in Sources */,
 				000000000000000000000068 /* BrowserDiscoverySnapshot.swift in Sources */,
 				000000000000000000000069 /* BrowserDiscoveryService.swift in Sources */,
+				000000000000000000000082 /* BrowserSwitchMode.swift in Sources */,
+				000000000000000000000084 /* BrowserSwitchSettings.swift in Sources */,
+				000000000000000000000086 /* BrowserDiscoveryRuntime.swift in Sources */,
 				00000000000000000000006A /* SystemBrowserDiscoveryService.swift in Sources */,
+				000000000000000000000088 /* LaunchServicesDirectBrowserDiscoveryService.swift in Sources */,
+				00000000000000000000008A /* SwitchModeBrowserDiscoveryService.swift in Sources */,
 				00000000000000000000006B /* BrowserDiscoveryStore.swift in Sources */,
 				00000000000000000000006D /* BrowserSwitchResult.swift in Sources */,
 				00000000000000000000007A /* BrowserPresentation.swift in Sources */,
@@ -287,6 +316,9 @@
 				000000000000000000000067 /* BrowserDiscoveryStoreTests.swift in Sources */,
 				00000000000000000000006E /* BrowserPresentationTests.swift in Sources */,
 				00000000000000000000007D /* LaunchAtLoginServiceTests.swift in Sources */,
+				00000000000000000000008C /* BrowserSwitchSettingsTests.swift in Sources */,
+				00000000000000000000008E /* SwitchModeBrowserDiscoveryServiceTests.swift in Sources */,
+				000000000000000000000096 /* LaunchServicesDirectBrowserDiscoveryServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

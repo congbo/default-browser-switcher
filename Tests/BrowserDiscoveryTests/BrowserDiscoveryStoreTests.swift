@@ -228,6 +228,227 @@ final class BrowserDiscoveryStoreTests: XCTestCase {
         XCTAssertNil(store.lastErrorMessage)
     }
 
+    func testOptimisticSuccessUpdatesSnapshotImmediatelyAndReconcilesInBackground() async throws {
+        let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
+        let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
+        let initialSnapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: safari,
+            currentHTTPSHandler: safari,
+            httpCandidates: [safari, chrome],
+            httpsCandidates: [safari, chrome],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_000_610)
+        )
+        let verifiedSnapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: chrome,
+            currentHTTPSHandler: chrome,
+            httpCandidates: [safari, chrome],
+            httpsCandidates: [safari, chrome],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_000_620)
+        )
+        let target = BrowserSwitchTarget(candidate: BrowserCandidate.fixture(from: chrome, supportedSchemes: [.http, .https]))
+        let backgroundRefreshScheduler = ManualBackgroundRefreshScheduler()
+        let controller = ControlledDiscoveryServiceController(
+            initialFetchResults: [.success(initialSnapshot)],
+            initialSwitchResults: [.optimisticSuccess(target: target, optimisticSnapshot: initialSnapshot.projectedSwitchSnapshot(for: target))]
+        )
+        let store = BrowserDiscoveryStore(
+            service: ControlledBrowserDiscoveryService(controller: controller),
+            backgroundRefreshScheduler: backgroundRefreshScheduler
+        )
+
+        await store.refresh()
+        let candidate = try XCTUnwrap(store.snapshot?.candidates.first(where: { $0.applicationURL == chrome.applicationURL }))
+
+        let result = await store.switchToBrowser(candidate)
+
+        XCTAssertEqual(result.evidence, .optimistic)
+        XCTAssertEqual(store.switchPhase, .success)
+        XCTAssertEqual(store.snapshot, initialSnapshot.projectedSwitchSnapshot(for: target))
+        XCTAssertEqual(store.presentation.currentBrowserSource, .optimisticPostSwitch)
+        XCTAssertEqual(store.presentation.settingsHelperText, "The app is refreshing browser state in the background.")
+        XCTAssertEqual(store.logEntries.map(\.stage), [.refresh, .refresh, .switching, .switching, .verification])
+
+        await controller.enqueueFetch(result: .success(verifiedSnapshot))
+        await backgroundRefreshScheduler.fireNext()
+
+        XCTAssertEqual(store.lastSwitchResult?.evidence, .verified)
+        XCTAssertEqual(store.switchPhase, .success)
+        XCTAssertEqual(store.snapshot, verifiedSnapshot)
+        XCTAssertEqual(store.presentation.currentBrowserSource, .liveSnapshot)
+        XCTAssertEqual(store.logEntries.last?.stage, .verification)
+        XCTAssertEqual(store.logEntries.last?.level, .info)
+    }
+
+    func testOptimisticSuccessMismatchKeepsProjectedSnapshotAndLogsWarning() async throws {
+        let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
+        let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
+        let initialSnapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: safari,
+            currentHTTPSHandler: safari,
+            httpCandidates: [safari, chrome],
+            httpsCandidates: [safari, chrome],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_000_630)
+        )
+        let target = BrowserSwitchTarget(candidate: BrowserCandidate.fixture(from: chrome, supportedSchemes: [.http, .https]))
+        let backgroundRefreshScheduler = ManualBackgroundRefreshScheduler()
+        let controller = ControlledDiscoveryServiceController(
+            initialFetchResults: [.success(initialSnapshot)],
+            initialSwitchResults: [.optimisticSuccess(target: target, optimisticSnapshot: initialSnapshot.projectedSwitchSnapshot(for: target))]
+        )
+        let store = BrowserDiscoveryStore(
+            service: ControlledBrowserDiscoveryService(controller: controller),
+            backgroundRefreshScheduler: backgroundRefreshScheduler
+        )
+
+        await store.refresh()
+        let candidate = try XCTUnwrap(store.snapshot?.candidates.first(where: { $0.applicationURL == chrome.applicationURL }))
+
+        _ = await store.switchToBrowser(candidate)
+        await controller.enqueueFetch(result: .success(initialSnapshot))
+        await backgroundRefreshScheduler.fireNext()
+
+        XCTAssertEqual(store.lastSwitchResult?.classification, .success)
+        XCTAssertEqual(store.lastSwitchResult?.evidence, .optimistic)
+        XCTAssertEqual(store.snapshot, initialSnapshot.projectedSwitchSnapshot(for: target))
+        XCTAssertEqual(store.presentation.currentBrowser?.application, chrome)
+        XCTAssertEqual(store.presentation.currentBrowserSource, .optimisticPostSwitch)
+        XCTAssertEqual(store.presentation.userVisibleStatus, .updated(browserName: "Google Chrome"))
+        XCTAssertEqual(
+            store.presentation.settingsHelperText,
+            "The browser switch was submitted, but verification has not caught up yet."
+        )
+        XCTAssertFalse(store.presentation.showRefreshInMenu)
+        XCTAssertEqual(store.logEntries.last?.stage, .verification)
+        XCTAssertEqual(store.logEntries.last?.level, .warning)
+        XCTAssertEqual(store.logEntries.last?.message, "http handler remained Safari")
+    }
+
+    func testOptimisticSuccessVerificationReadFailureKeepsProjectedSnapshotAndLogsError() async throws {
+        let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
+        let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
+        let initialSnapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: safari,
+            currentHTTPSHandler: safari,
+            httpCandidates: [safari, chrome],
+            httpsCandidates: [safari, chrome],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_000_631)
+        )
+        let target = BrowserSwitchTarget(candidate: BrowserCandidate.fixture(from: chrome, supportedSchemes: [.http, .https]))
+        let backgroundRefreshScheduler = ManualBackgroundRefreshScheduler()
+        let controller = ControlledDiscoveryServiceController(
+            initialFetchResults: [.success(initialSnapshot)],
+            initialSwitchResults: [.optimisticSuccess(target: target, optimisticSnapshot: initialSnapshot.projectedSwitchSnapshot(for: target))]
+        )
+        let store = BrowserDiscoveryStore(
+            service: ControlledBrowserDiscoveryService(controller: controller),
+            backgroundRefreshScheduler: backgroundRefreshScheduler
+        )
+
+        await store.refresh()
+        let candidate = try XCTUnwrap(store.snapshot?.candidates.first(where: { $0.applicationURL == chrome.applicationURL }))
+
+        _ = await store.switchToBrowser(candidate)
+        await controller.enqueueFetch(result: .failure(FixtureError.forcedFailure))
+        await backgroundRefreshScheduler.fireNext()
+
+        XCTAssertEqual(store.snapshot, initialSnapshot.projectedSwitchSnapshot(for: target))
+        XCTAssertEqual(store.presentation.currentBrowser?.application, chrome)
+        XCTAssertEqual(store.presentation.currentBrowserSource, .optimisticPostSwitch)
+        XCTAssertEqual(
+            store.presentation.settingsHelperText,
+            "The browser switch was submitted, but verification has not caught up yet."
+        )
+        XCTAssertEqual(store.logEntries.last?.stage, .verification)
+        XCTAssertEqual(store.logEntries.last?.level, .error)
+        XCTAssertEqual(store.logEntries.last?.message, FixtureError.forcedFailure.errorDescription)
+    }
+
+    func testDirectOptimisticVerificationPrefersPreferencesOverWorkspaceProbe() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let preferencesURL = directory.appendingPathComponent("com.apple.launchservices.secure.plist")
+        let switchSettings = BrowserSwitchSettings(userDefaults: UserDefaults(suiteName: "DirectOptimisticVerification-\(UUID().uuidString)")!)
+        switchSettings.switchMode = .launchServicesDirect
+
+        let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
+        let arc = BrowserApplication.fixture(bundleIdentifier: "company.theBrowser", displayName: "Arc", path: "/Applications/Arc.app")
+        let initialSnapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: safari,
+            currentHTTPSHandler: safari,
+            httpCandidates: [safari, arc],
+            httpsCandidates: [safari, arc],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_000_631)
+        )
+
+        let snapshotService = SequencedBrowserDiscoveryService(fetchResults: [.success(initialSnapshot)])
+        let scheduler = ManualBackgroundRefreshScheduler()
+        let directService = LaunchServicesDirectBrowserDiscoveryService(
+            workspace: StaticBrowserWorkspace(
+                currentHandlers: [.http: safari.applicationURL, .https: safari.applicationURL],
+                candidateURLs: [.http: [safari.applicationURL, arc.applicationURL], .https: [safari.applicationURL, arc.applicationURL]]
+            ),
+            completionTimeout: 0.01,
+            commandRunner: RecordingCommandRunner(),
+            preferencesURL: preferencesURL
+        )
+        let store = BrowserDiscoveryStore(
+            service: SwitchModeBrowserDiscoveryService(
+                snapshotService: snapshotService,
+                launchServicesDirectService: directService,
+                systemPromptService: snapshotService,
+                settings: switchSettings
+            ),
+            backgroundRefreshScheduler: scheduler
+        )
+
+        await store.refresh()
+        let candidate = try XCTUnwrap(store.snapshot?.candidates.first(where: { $0.applicationURL == arc.applicationURL }))
+
+        _ = await store.switchToBrowser(candidate)
+        await scheduler.fireNext()
+
+        XCTAssertEqual(store.lastSwitchResult?.evidence, .verified)
+        XCTAssertEqual(store.lastSwitchResult?.classification, .success)
+        XCTAssertEqual(store.presentation.currentBrowser?.application, arc)
+        XCTAssertEqual(store.presentation.currentBrowserSource, .liveSnapshot)
+        XCTAssertEqual(store.logEntries.last?.level, .warning)
+        XCTAssertEqual(store.logEntries.last?.message, "Workspace readback still reported Safari for the HTTP sample URL.")
+    }
+
+    func testManualRefreshCanReplaceDeferredOptimisticSelectionWithLiveSnapshot() async throws {
+        let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
+        let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
+        let initialSnapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: safari,
+            currentHTTPSHandler: safari,
+            httpCandidates: [safari, chrome],
+            httpsCandidates: [safari, chrome],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_000_632)
+        )
+        let target = BrowserSwitchTarget(candidate: BrowserCandidate.fixture(from: chrome, supportedSchemes: [.http, .https]))
+        let backgroundRefreshScheduler = ManualBackgroundRefreshScheduler()
+        let controller = ControlledDiscoveryServiceController(
+            initialFetchResults: [.success(initialSnapshot), .success(initialSnapshot), .success(initialSnapshot)],
+            initialSwitchResults: [.optimisticSuccess(target: target, optimisticSnapshot: initialSnapshot.projectedSwitchSnapshot(for: target))]
+        )
+        let store = BrowserDiscoveryStore(
+            service: ControlledBrowserDiscoveryService(controller: controller),
+            backgroundRefreshScheduler: backgroundRefreshScheduler
+        )
+
+        await store.refresh()
+        let candidate = try XCTUnwrap(store.snapshot?.candidates.first(where: { $0.applicationURL == chrome.applicationURL }))
+
+        _ = await store.switchToBrowser(candidate)
+        await backgroundRefreshScheduler.fireNext()
+        await store.refresh()
+
+        XCTAssertEqual(store.snapshot, initialSnapshot)
+        XCTAssertEqual(store.presentation.currentBrowser?.application, safari)
+        XCTAssertEqual(store.presentation.currentBrowserSource, .liveSnapshot)
+    }
+
     func testVerifiedSuccessSuppressesPerSchemeCallbackErrorsInStoreState() async throws {
         let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
         let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
@@ -672,6 +893,52 @@ final class BrowserDiscoveryStoreTests: XCTestCase {
         XCTAssertEqual(store.presentation.currentBrowser?.source, .liveSnapshot)
     }
 
+    func testRefreshFailureAfterSuccessfulSwitchKeepsTrustedStaleSelectionForRequestedBrowser() async throws {
+        let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
+        let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
+        let initialSnapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: safari,
+            currentHTTPSHandler: safari,
+            httpCandidates: [safari, chrome],
+            httpsCandidates: [safari, chrome],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_002_010)
+        )
+        let verifiedSnapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: chrome,
+            currentHTTPSHandler: chrome,
+            httpCandidates: [safari, chrome],
+            httpsCandidates: [safari, chrome],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_002_020)
+        )
+        let service = SequencedBrowserDiscoveryService(
+            fetchResults: [
+                .success(initialSnapshot),
+                .failure(FixtureError.forcedFailure)
+            ],
+            switchResults: [
+                .verifiedSuccess(
+                    target: BrowserSwitchTarget(candidate: BrowserCandidate.fixture(from: chrome, supportedSchemes: [.http, .https])),
+                    verifiedSnapshot: verifiedSnapshot
+                )
+            ]
+        )
+        let store = BrowserDiscoveryStore(service: service)
+
+        await store.refresh()
+        let chromeCandidate = try XCTUnwrap(store.snapshot?.candidates.first(where: { $0.applicationURL == chrome.applicationURL }))
+
+        _ = await store.switchToBrowser(chromeCandidate)
+        await store.refresh()
+
+        let chromeRow = try XCTUnwrap(store.presentation.candidates.first(where: { $0.candidate.applicationURL == chrome.applicationURL }))
+
+        XCTAssertEqual(store.phase, .failed)
+        XCTAssertEqual(store.presentation.currentBrowser?.application, chrome)
+        XCTAssertEqual(store.presentation.currentBrowserSource, .staleFallback)
+        XCTAssertEqual(chromeRow.actionState, .trustedSelection)
+        XCTAssertEqual(store.presentation.selectedActionableBrowserID, chromeRow.candidate.id)
+    }
+
     func testNewSwitchAttemptClearsPriorSuccessStateImmediately() async throws {
         let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
         let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
@@ -1048,7 +1315,10 @@ private struct ControlledBrowserDiscoveryService: BrowserDiscoveryService {
         try await controller.nextSnapshot()
     }
 
-    func switchDefaultBrowser(to target: BrowserSwitchTarget) async -> BrowserSwitchResult {
+    func switchDefaultBrowser(
+        to target: BrowserSwitchTarget,
+        baselineSnapshot _: BrowserDiscoverySnapshot?
+    ) async -> BrowserSwitchResult {
         await controller.nextSwitchResult(for: target)
     }
 }
@@ -1077,7 +1347,10 @@ private final class SequencedBrowserDiscoveryService: BrowserDiscoveryService {
         return try fetchResults[fetchIndex].get()
     }
 
-    func switchDefaultBrowser(to target: BrowserSwitchTarget) async -> BrowserSwitchResult {
+    func switchDefaultBrowser(
+        to target: BrowserSwitchTarget,
+        baselineSnapshot _: BrowserDiscoverySnapshot?
+    ) async -> BrowserSwitchResult {
         guard switchIndex < switchResults.count else {
             XCTFail("Requested more BrowserDiscoveryService switch results than the test configured for \(target.id).")
             return .serviceFailure(target: target, readbackErrorMessage: FixtureError.unconfiguredSwitchResult.localizedDescription)
@@ -1133,6 +1406,77 @@ private final class ManualSuccessResetScheduler: BrowserPresentationSuccessReset
         order.removeFirst()
         actions[id] = nil
         await action()
+    }
+}
+
+private final class ManualBackgroundRefreshScheduler: BrowserDiscoveryBackgroundRefreshScheduling {
+    private var actions: [UUID: @MainActor () async -> Void] = [:]
+    private var order: [UUID] = []
+
+    func schedule(after _: TimeInterval, action: @escaping @MainActor () async -> Void) -> AnyCancellable {
+        let id = UUID()
+        actions[id] = action
+        order.append(id)
+
+        return AnyCancellable { [weak self] in
+            self?.actions[id] = nil
+            self?.order.removeAll(where: { $0 == id })
+        }
+    }
+
+    @MainActor
+    func fireNext() async {
+        guard let id = order.first, let action = actions[id] else {
+            XCTFail("Expected a scheduled background refresh action.")
+            return
+        }
+
+        order.removeFirst()
+        actions[id] = nil
+        await action()
+    }
+}
+
+private final class RecordingCommandRunner: CommandRunning {
+    struct Invocation: Equatable {
+        let path: String
+        let arguments: [String]
+    }
+
+    private(set) var commands: [Invocation] = []
+    var error: Error?
+
+    func runDetached(executableURL: URL, arguments: [String]) throws {
+        commands.append(.init(path: executableURL.path, arguments: arguments))
+        if let error {
+            throw error
+        }
+    }
+}
+
+private final class StaticBrowserWorkspace: BrowserWorkspace {
+    let currentHandlers: [BrowserURLScheme: URL]
+    let candidateURLs: [BrowserURLScheme: [URL]]
+
+    init(currentHandlers: [BrowserURLScheme: URL], candidateURLs: [BrowserURLScheme: [URL]]) {
+        self.currentHandlers = currentHandlers
+        self.candidateURLs = candidateURLs
+    }
+
+    func currentHandlerURL(for scheme: BrowserURLScheme) throws -> URL? {
+        currentHandlers[scheme]
+    }
+
+    func candidateHandlerURLs(for scheme: BrowserURLScheme) throws -> [URL] {
+        candidateURLs[scheme] ?? []
+    }
+
+    func setDefaultApplication(
+        at applicationURL: URL,
+        for scheme: BrowserURLScheme,
+        completionHandler: @escaping @Sendable (Error?) -> Void
+    ) {
+        completionHandler(nil)
     }
 }
 

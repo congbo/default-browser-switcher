@@ -115,6 +115,35 @@ struct BrowserDiscoverySnapshot: Codable, Hashable {
         return currentHTTPHandler.merged(with: currentHTTPSHandler)
     }
 
+    func projectedSwitchSnapshot(for target: BrowserSwitchTarget) -> BrowserDiscoverySnapshot {
+        let projectedApplication = BrowserApplication(
+            bundleIdentifier: target.bundleIdentifier,
+            displayName: target.displayName,
+            applicationURL: target.applicationURL
+        )
+        let projectedCandidate = BrowserCandidate(
+            bundleIdentifier: target.bundleIdentifier,
+            displayName: target.displayName,
+            applicationURL: target.applicationURL,
+            supportedSchemes: Set(BrowserURLScheme.allCases)
+        )
+        let projectedCandidates: [BrowserCandidate]
+
+        if candidates.contains(where: { $0.normalizedApplicationPath == projectedCandidate.normalizedApplicationPath }) {
+            projectedCandidates = candidates
+        } else {
+            projectedCandidates = (candidates + [projectedCandidate]).sorted(by: Self.sortCandidates)
+        }
+
+        return BrowserDiscoverySnapshot(
+            currentHTTPHandler: projectedApplication,
+            currentHTTPSHandler: projectedApplication,
+            candidates: projectedCandidates,
+            refreshedAt: refreshedAt,
+            issues: issues
+        )
+    }
+
     static func normalized(
         currentHTTPHandler: BrowserApplication?,
         currentHTTPSHandler: BrowserApplication?,

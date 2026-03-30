@@ -4,6 +4,7 @@ import Foundation
 struct BrowserPresentation: Equatable {
     enum CurrentBrowserSource: Equatable {
         case liveSnapshot
+        case optimisticPostSwitch
         case verifiedPostSwitch
         case staleFallback
         case none
@@ -24,6 +25,7 @@ struct BrowserPresentation: Equatable {
 
         enum ActionState: Equatable {
             case currentSelection
+            case trustedSelection
             case switchable
             case disabled(DisabledReason)
         }
@@ -40,7 +42,16 @@ struct BrowserPresentation: Equatable {
             switch actionState {
             case .switchable:
                 true
-            case .currentSelection, .disabled:
+            case .currentSelection, .trustedSelection, .disabled:
+                false
+            }
+        }
+
+        var isSelected: Bool {
+            switch actionState {
+            case .currentSelection, .trustedSelection:
+                true
+            case .switchable, .disabled:
                 false
             }
         }
@@ -124,7 +135,9 @@ struct BrowserPresentation: Equatable {
         snapshot: BrowserDiscoverySnapshot?,
         lastSwitchResult: BrowserSwitchResult?,
         lastCoherentBrowser: BrowserApplication?,
+        optimisticVerificationMessage: String? = nil,
         preferVerifiedPostSwitch: Bool = false,
+        preferOptimisticPostSwitch: Bool = false,
         switchPhase: BrowserDiscoveryStore.SwitchPhase,
         successState: SuccessState,
         phase: BrowserDiscoveryStore.Phase = .loaded,
@@ -134,22 +147,32 @@ struct BrowserPresentation: Equatable {
         isEligibleSwitchTarget: (BrowserCandidate) -> Bool = { _ in true }
     ) {
         let liveCurrentBrowser = snapshot?.coherentCurrentBrowser
+        let optimisticCurrentBrowser = switchPhase == .switching ? nil : lastSwitchResult?.optimisticSnapshot?.coherentCurrentBrowser
         let verifiedCurrentBrowser = switchPhase == .switching ? nil : lastSwitchResult?.verifiedSnapshot?.coherentCurrentBrowser
 
-        currentBrowser = Self.resolveCurrentBrowser(
+        let resolvedCurrentBrowser = Self.resolveCurrentBrowser(
             phase: phase,
             switchPhase: switchPhase,
             liveCurrentBrowser: liveCurrentBrowser,
+            optimisticCurrentBrowser: optimisticCurrentBrowser,
             verifiedCurrentBrowser: verifiedCurrentBrowser,
             lastCoherentBrowser: lastCoherentBrowser,
-            preferVerifiedPostSwitch: preferVerifiedPostSwitch
+            preferVerifiedPostSwitch: preferVerifiedPostSwitch,
+            preferOptimisticPostSwitch: preferOptimisticPostSwitch
         )
-        currentBrowserSource = currentBrowser?.source ?? .none
-        fallbackBrowser = currentBrowserSource == .staleFallback ? currentBrowser?.application : nil
+        let resolvedCurrentBrowserSource = resolvedCurrentBrowser?.source ?? CurrentBrowserSource.none
+        currentBrowser = resolvedCurrentBrowser
+        currentBrowserSource = resolvedCurrentBrowserSource
+        fallbackBrowser = resolvedCurrentBrowserSource == .staleFallback ? resolvedCurrentBrowser?.application : nil
         self.successState = successState
         self.retryAvailability = retryAvailability
+        let trustedStaleSelectionPath = Self.resolveTrustedStaleSelectionPath(
+            currentBrowser: resolvedCurrentBrowser,
+            currentBrowserSource: resolvedCurrentBrowserSource,
+            lastSwitchResult: lastSwitchResult
+        )
 
-        let currentBrowserPath = currentBrowser?.application.normalizedApplicationPath
+        let currentBrowserPath = resolvedCurrentBrowser?.application.normalizedApplicationPath
         let allCandidates = (snapshot?.candidates ?? []).map { candidate in
             let isCurrentBrowser = candidate.normalizedApplicationPath == currentBrowserPath
             let intrinsicDisabledReason = Self.intrinsicDisabledReason(
@@ -161,7 +184,14 @@ struct BrowserPresentation: Equatable {
             if let intrinsicDisabledReason {
                 actionState = .disabled(intrinsicDisabledReason)
             } else if isCurrentBrowser {
-                actionState = .currentSelection
+                if resolvedCurrentBrowserSource == .staleFallback,
+                   candidate.normalizedApplicationPath == trustedStaleSelectionPath {
+                    actionState = .trustedSelection
+                } else if resolvedCurrentBrowserSource == .staleFallback {
+                    actionState = .switchable
+                } else {
+                    actionState = .currentSelection
+                }
             } else if switchPhase == .switching {
                 actionState = .disabled(.switchInProgress)
             } else {
@@ -178,7 +208,7 @@ struct BrowserPresentation: Equatable {
         candidates = allCandidates
         pickerBrowsers = allCandidates.filter {
             switch $0.actionState {
-            case .currentSelection, .switchable, .disabled(.switchInProgress):
+            case .currentSelection, .trustedSelection, .switchable, .disabled(.switchInProgress):
                 true
             case .disabled:
                 false
@@ -188,7 +218,7 @@ struct BrowserPresentation: Equatable {
         nonActionableCandidatesWithReasons = allCandidates.filter { !$0.isActionable }
         selectedActionableBrowserID = Self.resolveSelectedActionableBrowserID(
             from: allCandidates,
-            currentBrowserSource: currentBrowserSource
+            currentBrowserSource: resolvedCurrentBrowserSource
         )
         currentBrowserIsActionable = selectedActionableBrowserID != nil
         settingsPickerPlaceholder = pickerBrowsers.isEmpty ? "No supported browsers found" : "Choose a browser"
@@ -198,8 +228,8 @@ struct BrowserPresentation: Equatable {
             successState: successState,
             lastSwitchResult: lastSwitchResult,
             lastErrorMessage: lastErrorMessage,
-            currentBrowserSource: currentBrowserSource,
-            hasDiscoveryContext: snapshot != nil || lastSwitchResult?.verifiedSnapshot != nil,
+            currentBrowserSource: resolvedCurrentBrowserSource,
+            hasDiscoveryContext: snapshot != nil || lastSwitchResult?.verifiedSnapshot != nil || lastSwitchResult?.optimisticSnapshot != nil,
             activeSwitchTarget: activeSwitchTarget
         )
         isPickerDisabled = switchPhase == .switching || switchableBrowsers.isEmpty
@@ -216,14 +246,17 @@ struct BrowserPresentation: Equatable {
         settingsHelperText = Self.resolveSettingsHelperText(
             statusMessageText: statusMessageText,
             currentBrowser: currentBrowser,
-            currentBrowserIsActionable: currentBrowserIsActionable
+            currentBrowserIsActionable: currentBrowserIsActionable,
+            optimisticVerificationMessage: optimisticVerificationMessage
         )
         retryButtonTitle = Self.resolveRetryButtonTitle(for: retryAvailability)
         retryHelpText = Self.resolveRetryHelpText(for: retryAvailability)
         currentInspectionSummaryText = Self.resolveCurrentInspectionSummaryText(
             snapshot: snapshot,
             lastSwitchResult: lastSwitchResult,
+            optimisticVerificationMessage: optimisticVerificationMessage,
             preferVerifiedPostSwitch: preferVerifiedPostSwitch,
+            preferOptimisticPostSwitch: preferOptimisticPostSwitch,
             phase: phase,
             currentBrowserSource: currentBrowserSource
         )
@@ -231,6 +264,7 @@ struct BrowserPresentation: Equatable {
             snapshot: snapshot,
             lastSwitchResult: lastSwitchResult,
             preferVerifiedPostSwitch: preferVerifiedPostSwitch,
+            preferOptimisticPostSwitch: preferOptimisticPostSwitch,
             phase: phase,
             candidates: allCandidates
         )
@@ -259,9 +293,11 @@ struct BrowserPresentation: Equatable {
         phase: BrowserDiscoveryStore.Phase,
         switchPhase: BrowserDiscoveryStore.SwitchPhase,
         liveCurrentBrowser: BrowserApplication?,
+        optimisticCurrentBrowser: BrowserApplication?,
         verifiedCurrentBrowser: BrowserApplication?,
         lastCoherentBrowser: BrowserApplication?,
-        preferVerifiedPostSwitch: Bool
+        preferVerifiedPostSwitch: Bool,
+        preferOptimisticPostSwitch: Bool
     ) -> CurrentBrowser? {
         if let verifiedCurrentBrowser,
            shouldPreferVerifiedCurrentBrowser(
@@ -271,13 +307,23 @@ struct BrowserPresentation: Equatable {
             return CurrentBrowser(application: verifiedCurrentBrowser, source: .verifiedPostSwitch)
         }
 
+        if let optimisticCurrentBrowser,
+           shouldPreferOptimisticCurrentBrowser(
+               switchPhase: switchPhase,
+               preferOptimisticPostSwitch: preferOptimisticPostSwitch
+           ) {
+            return CurrentBrowser(application: optimisticCurrentBrowser, source: .optimisticPostSwitch)
+        }
+
         if phase == .failed {
             if let fallback = staleFallbackBrowser(
                 switchPhase: switchPhase,
                 liveCurrentBrowser: liveCurrentBrowser,
+                optimisticCurrentBrowser: optimisticCurrentBrowser,
                 verifiedCurrentBrowser: verifiedCurrentBrowser,
                 lastCoherentBrowser: lastCoherentBrowser,
-                preferVerifiedPostSwitch: preferVerifiedPostSwitch
+                preferVerifiedPostSwitch: preferVerifiedPostSwitch,
+                preferOptimisticPostSwitch: preferOptimisticPostSwitch
             ) {
                 return CurrentBrowser(application: fallback, source: .staleFallback)
             }
@@ -299,9 +345,11 @@ struct BrowserPresentation: Equatable {
     private static func staleFallbackBrowser(
         switchPhase: BrowserDiscoveryStore.SwitchPhase,
         liveCurrentBrowser: BrowserApplication?,
+        optimisticCurrentBrowser: BrowserApplication?,
         verifiedCurrentBrowser: BrowserApplication?,
         lastCoherentBrowser: BrowserApplication?,
-        preferVerifiedPostSwitch: Bool
+        preferVerifiedPostSwitch: Bool,
+        preferOptimisticPostSwitch: Bool
     ) -> BrowserApplication? {
         if let verifiedCurrentBrowser,
            shouldPreferVerifiedCurrentBrowser(
@@ -311,7 +359,15 @@ struct BrowserPresentation: Equatable {
             return verifiedCurrentBrowser
         }
 
-        return liveCurrentBrowser ?? verifiedCurrentBrowser ?? lastCoherentBrowser
+        if let optimisticCurrentBrowser,
+           shouldPreferOptimisticCurrentBrowser(
+               switchPhase: switchPhase,
+               preferOptimisticPostSwitch: preferOptimisticPostSwitch
+           ) {
+            return optimisticCurrentBrowser
+        }
+
+        return liveCurrentBrowser ?? optimisticCurrentBrowser ?? verifiedCurrentBrowser ?? lastCoherentBrowser
     }
 
     private static func shouldPreferVerifiedCurrentBrowser(
@@ -325,16 +381,50 @@ struct BrowserPresentation: Equatable {
         return switchPhase != .switching
     }
 
+    private static func shouldPreferOptimisticCurrentBrowser(
+        switchPhase: BrowserDiscoveryStore.SwitchPhase,
+        preferOptimisticPostSwitch: Bool
+    ) -> Bool {
+        guard preferOptimisticPostSwitch else {
+            return false
+        }
+
+        return switchPhase != .switching
+    }
+
     private static func resolveSelectedActionableBrowserID(
         from candidates: [Candidate],
         currentBrowserSource: CurrentBrowserSource
     ) -> String? {
         switch currentBrowserSource {
-        case .liveSnapshot, .verifiedPostSwitch:
-            return candidates.first(where: { $0.actionState == .currentSelection })?.candidate.id
-        case .staleFallback, .none:
+        case .liveSnapshot, .optimisticPostSwitch, .verifiedPostSwitch:
+            return candidates.first(where: { $0.isSelected })?.candidate.id
+        case .staleFallback:
+            return candidates.first(where: { $0.actionState == .trustedSelection })?.candidate.id
+        case .none:
             return nil
         }
+    }
+
+    private static func resolveTrustedStaleSelectionPath(
+        currentBrowser: CurrentBrowser?,
+        currentBrowserSource: CurrentBrowserSource,
+        lastSwitchResult: BrowserSwitchResult?
+    ) -> String? {
+        guard currentBrowserSource == .staleFallback,
+              let currentBrowser,
+              let lastSwitchResult,
+              lastSwitchResult.classification == .success
+        else {
+            return nil
+        }
+
+        let requestedPath = lastSwitchResult.requestedTarget.applicationURL.standardizedFileURL.path
+        guard requestedPath == currentBrowser.application.normalizedApplicationPath else {
+            return nil
+        }
+
+        return requestedPath
     }
 
     private static func resolveUserVisibleStatus(
@@ -458,10 +548,19 @@ struct BrowserPresentation: Equatable {
     private static func resolveSettingsHelperText(
         statusMessageText: String?,
         currentBrowser: CurrentBrowser?,
-        currentBrowserIsActionable: Bool
+        currentBrowserIsActionable: Bool,
+        optimisticVerificationMessage: String?
     ) -> String {
         if currentBrowser != nil, !currentBrowserIsActionable {
             return "This browser is detected, but it can’t be managed here."
+        }
+
+        if currentBrowser?.source == .optimisticPostSwitch {
+            if let optimisticVerificationMessage {
+                return optimisticVerificationMessage
+            }
+
+            return "The app is refreshing browser state in the background."
         }
 
         return statusMessageText ?? "The app verifies the browser after switching."
@@ -504,12 +603,25 @@ struct BrowserPresentation: Equatable {
     private static func resolveCurrentInspectionSummaryText(
         snapshot: BrowserDiscoverySnapshot?,
         lastSwitchResult: BrowserSwitchResult?,
+        optimisticVerificationMessage: String?,
         preferVerifiedPostSwitch: Bool,
+        preferOptimisticPostSwitch: Bool,
         phase: BrowserDiscoveryStore.Phase,
         currentBrowserSource: CurrentBrowserSource
     ) -> String {
         if shouldUseVerifiedInspectionSnapshot(lastSwitchResult: lastSwitchResult, preferVerifiedPostSwitch: preferVerifiedPostSwitch) {
             return "Showing the verified post-switch handlers."
+        }
+
+        if shouldUseOptimisticInspectionSnapshot(
+            lastSwitchResult: lastSwitchResult,
+            preferOptimisticPostSwitch: preferOptimisticPostSwitch
+        ) {
+            if let optimisticVerificationMessage {
+                return optimisticVerificationMessage
+            }
+
+            return "Showing the requested browser while background refresh catches up."
         }
 
         if snapshot != nil {
@@ -527,6 +639,7 @@ struct BrowserPresentation: Equatable {
         snapshot: BrowserDiscoverySnapshot?,
         lastSwitchResult: BrowserSwitchResult?,
         preferVerifiedPostSwitch: Bool,
+        preferOptimisticPostSwitch: Bool,
         phase: BrowserDiscoveryStore.Phase,
         candidates: [Candidate]
     ) -> [CurrentHandlerInspection] {
@@ -534,6 +647,7 @@ struct BrowserPresentation: Equatable {
             snapshot: snapshot,
             lastSwitchResult: lastSwitchResult,
             preferVerifiedPostSwitch: preferVerifiedPostSwitch,
+            preferOptimisticPostSwitch: preferOptimisticPostSwitch,
             phase: phase
         )
         let handlersAreMixed = inspectionSnapshot?.currentHTTPHandler != nil
@@ -582,11 +696,20 @@ struct BrowserPresentation: Equatable {
         snapshot: BrowserDiscoverySnapshot?,
         lastSwitchResult: BrowserSwitchResult?,
         preferVerifiedPostSwitch: Bool,
+        preferOptimisticPostSwitch: Bool,
         phase: BrowserDiscoveryStore.Phase
     ) -> (BrowserDiscoverySnapshot?, CurrentBrowserSource) {
         if shouldUseVerifiedInspectionSnapshot(lastSwitchResult: lastSwitchResult, preferVerifiedPostSwitch: preferVerifiedPostSwitch),
            let verifiedSnapshot = lastSwitchResult?.verifiedSnapshot {
             return (verifiedSnapshot, .verifiedPostSwitch)
+        }
+
+        if shouldUseOptimisticInspectionSnapshot(
+            lastSwitchResult: lastSwitchResult,
+            preferOptimisticPostSwitch: preferOptimisticPostSwitch
+        ),
+           let optimisticSnapshot = lastSwitchResult?.optimisticSnapshot {
+            return (optimisticSnapshot, .optimisticPostSwitch)
         }
 
         if let snapshot {
@@ -607,6 +730,15 @@ struct BrowserPresentation: Equatable {
         preferVerifiedPostSwitch && lastSwitchResult?.verifiedSnapshot != nil
     }
 
+    private static func shouldUseOptimisticInspectionSnapshot(
+        lastSwitchResult: BrowserSwitchResult?,
+        preferOptimisticPostSwitch: Bool
+    ) -> Bool {
+        preferOptimisticPostSwitch
+            && lastSwitchResult?.evidence == .optimistic
+            && lastSwitchResult?.optimisticSnapshot != nil
+    }
+
     private static func resolveInspectionDetailText(
         scheme: BrowserURLScheme,
         displayName: String,
@@ -623,6 +755,10 @@ struct BrowserPresentation: Equatable {
         case .currentBrowser:
             if source == .verifiedPostSwitch {
                 return "\(schemeLabel) verified as \(displayName)."
+            }
+
+            if source == .optimisticPostSwitch {
+                return "\(schemeLabel) is shown as \(displayName) while background refresh completes."
             }
 
             return "\(schemeLabel) currently resolves to \(displayName)."

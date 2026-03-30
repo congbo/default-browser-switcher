@@ -20,16 +20,20 @@ struct MenuBarContentView: View {
 
             Divider()
 
-            aboutButton
-
-            Divider()
-
             Button(String(localized: "menu.refresh")) {
                 Task {
                     await store.refresh()
                 }
             }
             .disabled(store.phase == .refreshing || store.switchPhase == .switching)
+
+            settingsButton
+
+            Divider()
+
+            aboutButton
+
+            Divider()
 
             Button(String(localized: "menu.quit")) {
                 NSApplication.shared.terminate(nil)
@@ -63,9 +67,25 @@ struct MenuBarContentView: View {
         }
     }
 
+    @ViewBuilder
+    private var settingsButton: some View {
+        if #available(macOS 14.0, *) {
+            SettingsLink {
+                Text(String(localized: "menu.settings"))
+            }
+            .keyboardShortcut(",", modifiers: .command)
+        } else {
+            Button(String(localized: "menu.settings")) {
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            .keyboardShortcut(",", modifiers: .command)
+        }
+    }
+
     private func selectionBinding(for row: BrowserPresentation.Candidate) -> Binding<Bool> {
         Binding(
-            get: { row.actionState == .currentSelection },
+            get: { row.isSelected },
             set: { isSelected in
                 guard isSelected, row.actionState == .switchable else {
                     return

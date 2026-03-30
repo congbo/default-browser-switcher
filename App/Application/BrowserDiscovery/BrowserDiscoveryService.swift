@@ -2,7 +2,37 @@ import Foundation
 
 protocol BrowserDiscoveryService {
     func fetchSnapshot() async throws -> BrowserDiscoverySnapshot
-    func switchDefaultBrowser(to target: BrowserSwitchTarget) async -> BrowserSwitchResult
+    func switchDefaultBrowser(
+        to target: BrowserSwitchTarget,
+        baselineSnapshot: BrowserDiscoverySnapshot?
+    ) async -> BrowserSwitchResult
+}
+
+extension BrowserDiscoveryService {
+    func switchDefaultBrowser(to target: BrowserSwitchTarget) async -> BrowserSwitchResult {
+        await switchDefaultBrowser(to: target, baselineSnapshot: nil)
+    }
+}
+
+enum BrowserOptimisticVerificationLogLevel: Equatable {
+    case info
+    case warning
+    case error
+}
+
+struct BrowserOptimisticVerificationLog: Equatable {
+    let level: BrowserOptimisticVerificationLogLevel
+    let message: String
+}
+
+struct BrowserOptimisticVerificationOutcome {
+    let result: BrowserSwitchResult
+    let logs: [BrowserOptimisticVerificationLog]
+    let isAuthoritative: Bool
+}
+
+protocol BrowserOptimisticSwitchVerifying {
+    func reconcileOptimisticSwitch(lastSwitchResult: BrowserSwitchResult) async -> BrowserOptimisticVerificationOutcome?
 }
 
 enum BrowserDiscoveryServiceError: LocalizedError {

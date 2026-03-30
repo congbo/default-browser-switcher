@@ -54,6 +54,11 @@ struct BrowserSwitchSchemeOutcome: Codable, Hashable {
 }
 
 struct BrowserSwitchResult: Codable, Hashable {
+    enum Evidence: String, Codable {
+        case verified
+        case optimistic
+    }
+
     enum Classification: String, Codable {
         case success
         case mixed
@@ -62,7 +67,9 @@ struct BrowserSwitchResult: Codable, Hashable {
 
     let requestedTarget: BrowserSwitchTarget
     let schemeOutcomes: [BrowserSwitchSchemeOutcome]
+    let evidence: Evidence
     let verifiedSnapshot: BrowserDiscoverySnapshot?
+    let optimisticSnapshot: BrowserDiscoverySnapshot?
     let readbackErrorMessage: String?
     let classification: Classification
     let mismatchDetails: [String]
@@ -89,7 +96,9 @@ struct BrowserSwitchResult: Codable, Hashable {
         return BrowserSwitchResult(
             requestedTarget: target,
             schemeOutcomes: completeOutcomes(schemeOutcomes),
+            evidence: .verified,
             verifiedSnapshot: verifiedSnapshot,
+            optimisticSnapshot: nil,
             readbackErrorMessage: nil,
             classification: classification,
             mismatchDetails: mismatchDetails,
@@ -105,7 +114,9 @@ struct BrowserSwitchResult: Codable, Hashable {
         BrowserSwitchResult(
             requestedTarget: target,
             schemeOutcomes: BrowserURLScheme.allCases.map(BrowserSwitchSchemeOutcome.success),
+            evidence: .verified,
             verifiedSnapshot: verifiedSnapshot,
+            optimisticSnapshot: nil,
             readbackErrorMessage: nil,
             classification: .success,
             mismatchDetails: [],
@@ -123,7 +134,9 @@ struct BrowserSwitchResult: Codable, Hashable {
         BrowserSwitchResult(
             requestedTarget: target,
             schemeOutcomes: completeOutcomes(schemeOutcomes ?? BrowserURLScheme.allCases.map(BrowserSwitchSchemeOutcome.success)),
+            evidence: .verified,
             verifiedSnapshot: verifiedSnapshot,
+            optimisticSnapshot: nil,
             readbackErrorMessage: nil,
             classification: .mixed,
             mismatchDetails: mismatchDetails,
@@ -141,10 +154,30 @@ struct BrowserSwitchResult: Codable, Hashable {
         BrowserSwitchResult(
             requestedTarget: target,
             schemeOutcomes: completeOutcomes(schemeOutcomes ?? BrowserURLScheme.allCases.map(BrowserSwitchSchemeOutcome.success)),
+            evidence: .verified,
             verifiedSnapshot: verifiedSnapshot,
+            optimisticSnapshot: nil,
             readbackErrorMessage: nil,
             classification: .failure,
             mismatchDetails: mismatchDetails,
+            completedAt: completedAt
+        )
+    }
+
+    static func optimisticSuccess(
+        target: BrowserSwitchTarget,
+        optimisticSnapshot: BrowserDiscoverySnapshot,
+        completedAt: Date = .now
+    ) -> BrowserSwitchResult {
+        BrowserSwitchResult(
+            requestedTarget: target,
+            schemeOutcomes: BrowserURLScheme.allCases.map(BrowserSwitchSchemeOutcome.success),
+            evidence: .optimistic,
+            verifiedSnapshot: nil,
+            optimisticSnapshot: optimisticSnapshot,
+            readbackErrorMessage: nil,
+            classification: .success,
+            mismatchDetails: [],
             completedAt: completedAt
         )
     }
@@ -158,7 +191,9 @@ struct BrowserSwitchResult: Codable, Hashable {
         BrowserSwitchResult(
             requestedTarget: target,
             schemeOutcomes: completeOutcomes(schemeOutcomes ?? []),
+            evidence: .verified,
             verifiedSnapshot: nil,
+            optimisticSnapshot: nil,
             readbackErrorMessage: readbackErrorMessage,
             classification: .failure,
             mismatchDetails: [],

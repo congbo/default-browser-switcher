@@ -1,28 +1,40 @@
+import AppKit
 import SwiftUI
 
 @main
 struct DefaultBrowserSwitcherApp: App {
     static let menuBarTitle = "Default Browser Switcher"
     static let settingsTitle = "Settings"
+    static let settingsWindowIdentifier = "DefaultBrowserSwitcher.settingsWindow"
     static let launchSwitchTargetPathEnvironmentKey = "DEFAULT_BROWSER_SWITCHER_SWITCH_TARGET_PATH"
 
     @StateObject private var store: BrowserDiscoveryStore
     @StateObject private var iconProvider: BrowserIconProvider
     @StateObject private var launchAtLoginService: LaunchAtLoginService
+    @StateObject private var switchSettings: BrowserSwitchSettings
 
     private let launchSwitchTargetPath: String?
     private let usesAutomationShell: Bool
 
     init() {
         let environment = ProcessInfo.processInfo.environment
+        let switchSettings = BrowserSwitchSettings()
+        let systemService = SystemBrowserDiscoveryService(environment: environment)
+        let launchServicesDirectService = LaunchServicesDirectBrowserDiscoveryService(environment: environment)
         let store = BrowserDiscoveryStore(
-            service: SystemBrowserDiscoveryService(environment: environment),
+            service: SwitchModeBrowserDiscoveryService(
+                snapshotService: systemService,
+                launchServicesDirectService: launchServicesDirectService,
+                systemPromptService: systemService,
+                settings: switchSettings
+            ),
             environment: environment
         )
         let requestedLaunchSwitchTargetPath = Self.requestedLaunchSwitchTargetPath(from: environment)
         _store = StateObject(wrappedValue: store)
         _iconProvider = StateObject(wrappedValue: BrowserIconProvider.shared)
         _launchAtLoginService = StateObject(wrappedValue: LaunchAtLoginService())
+        _switchSettings = StateObject(wrappedValue: switchSettings)
         launchSwitchTargetPath = requestedLaunchSwitchTargetPath
         usesAutomationShell = requestedLaunchSwitchTargetPath != nil || Self.requestedSnapshotOutputPath(from: environment) != nil
 
@@ -54,6 +66,7 @@ struct DefaultBrowserSwitcherApp: App {
                 .environmentObject(store)
                 .environmentObject(iconProvider)
                 .environmentObject(launchAtLoginService)
+                .environmentObject(switchSettings)
         }
     }
 
@@ -75,6 +88,48 @@ struct DefaultBrowserSwitcherApp: App {
         }
 
         return rawValue
+    }
+}
+
+@MainActor
+final class SettingsWindowController {
+    static let shared = SettingsWindowController()
+
+    private let windowIdentifier = NSUserInterfaceItemIdentifier(DefaultBrowserSwitcherApp.settingsWindowIdentifier)
+    private let activateApplication: (Bool) -> Void
+    private weak var settingsWindow: NSWindow?
+
+    init(
+        activateApplication: @escaping (Bool) -> Void = { ignoresOtherApps in
+            NSApp.activate(ignoringOtherApps: ignoresOtherApps)
+        }
+    ) {
+        self.activateApplication = activateApplication
+    }
+
+    @discardableResult
+    func register(window: NSWindow) -> Bool {
+        let isNewWindow = settingsWindow !== window
+        settingsWindow = window
+        configure(window)
+        return isNewWindow
+    }
+
+    func activate(window: NSWindow) {
+        bringToFront(window)
+    }
+
+    private func configure(_ window: NSWindow) {
+        window.identifier = windowIdentifier
+        window.tabbingMode = .disallowed
+        window.minSize = NSSize(width: 600, height: 460)
+    }
+
+    private func bringToFront(_ window: NSWindow) {
+        configure(window)
+        window.orderFrontRegardless()
+        window.makeKeyAndOrderFront(nil)
+        activateApplication(true)
     }
 }
 

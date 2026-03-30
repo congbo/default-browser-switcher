@@ -320,6 +320,23 @@
         }
       }
     },
+    "menu.settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置…"
+          }
+        }
+      }
+    },
     "menu.switch.status.failure" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -385,9 +402,6 @@
           }
         }
       }
-    },
-    "Retry" : {
-
     },
     "settings.advanced" : {
       "extractionState" : "manual",
@@ -604,13 +618,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "macOS requires approval before this app can launch at login."
+            "value" : "Allow this app in System Settings before it can launch at login."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在此应用可于登录时启动前，macOS 需要先完成批准。"
+            "value" : "需要先在“系统设置”中允许此应用，才能在登录时启动。"
           }
         }
       }
@@ -621,13 +635,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Default Browser Switcher will stay off until you launch it manually."
+            "value" : "Off until you open the app yourself."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Default Browser Switcher 不会自动启动，需手动打开。"
+            "value" : "不会自动打开，需要你手动启动。"
           }
         }
       }
@@ -638,13 +652,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Default Browser Switcher will open automatically when you sign in."
+            "value" : "Opens automatically when you sign in."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "登录时会自动打开 Default Browser Switcher。"
+            "value" : "登录时会自动打开。"
           }
         }
       }
@@ -655,13 +669,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Checking the current launch-at-login status…"
+            "value" : "Checking login item status…"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在检查当前的登录时启动状态…"
+            "value" : "正在检查登录项状态…"
           }
         }
       }
@@ -740,13 +754,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Launch at login is unavailable for this app on the current Mac."
+            "value" : "This Mac can't enable launch at login for this app."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "当前这台 Mac 上此应用无法使用登录时启动。"
+            "value" : "这台 Mac 无法为此应用启用登录时启动。"
           }
         }
       }
@@ -769,6 +783,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Switching remains disabled in S01; this view only reports system discovery state."
+          }
+        }
+      }
+    },
+    "settings.refresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh browser discovery"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新浏览器发现结果"
+          }
+        }
+      }
+    },
+    "settings.refresh.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re-read the current default browser and available browser list from the latest system discovery result."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新读取当前默认浏览器状态和可选浏览器列表，同步最新的系统发现结果。"
+          }
+        }
+      }
+    },
+    "settings.refresh.section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browser discovery"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浏览器发现结果"
           }
         }
       }
@@ -846,6 +911,295 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Requested target"
+          }
+        }
+      }
+    },
+    "settings.switchMode.description" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose how Default Browser Switcher updates the system default browser."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择 Default Browser Switcher 更新系统默认浏览器的方式。"
+          }
+        }
+      }
+    },
+    "settings.switchMode.detail.launchServicesDirect" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LaunchServices Direct rewrites the user browser handlers first. It is usually faster and avoids the confirmation dialog, but it is a lower-level compatibility path."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LaunchServices Direct 会直接改写当前用户的浏览器处理器设置。它通常更快，也更可能避免确认弹框，但属于更底层、兼容性风险更高的路径。"
+          }
+        }
+      }
+    },
+    "settings.switchMode.detail.systemPrompt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Prompt uses the official macOS API. It is the most conservative path, but macOS may ask you to confirm the browser change."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Prompt 使用 macOS 官方 API。它是更保守的路径，但 macOS 可能会要求你确认浏览器切换。"
+          }
+        }
+      }
+    },
+    "settings.switchMode.label" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch implementation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换实现"
+          }
+        }
+      }
+    },
+    "settings.switchMode.option.launchServicesDirect" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LaunchServices Direct"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LaunchServices Direct"
+          }
+        }
+      }
+    },
+    "settings.switchMode.option.systemPrompt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Prompt"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Prompt"
+          }
+        }
+      }
+    },
+    "settings.switchMode.section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch mode"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换模式"
+          }
+        }
+      }
+    },
+    "settings.logs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logs"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日志"
+          }
+        }
+      }
+    },
+    "settings.logs.empty" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No browser switch logs yet in this app session."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本次运行还没有切换日志"
+          }
+        }
+      }
+    },
+    "settings.logs.level.error" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "错误"
+          }
+        }
+      }
+    },
+    "settings.logs.level.info" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信息"
+          }
+        }
+      }
+    },
+    "settings.logs.level.warning" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warning"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "警告"
+          }
+        }
+      }
+    },
+    "settings.logs.refresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh current browser"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新当前浏览器"
+          }
+        }
+      }
+    },
+    "settings.logs.stage.refresh" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refresh"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新"
+          }
+        }
+      }
+    },
+    "settings.logs.stage.switch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换"
+          }
+        }
+      }
+    },
+    "settings.logs.stage.verification" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verification"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "校验"
+          }
+        }
+      }
+    },
+    "settings.optimisticVerification.unconfirmed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The browser switch was submitted, but verification has not caught up yet."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浏览器切换请求已提交，但校验结果暂时还没有跟上。"
           }
         }
       }

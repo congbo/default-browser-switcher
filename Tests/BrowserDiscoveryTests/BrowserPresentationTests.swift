@@ -78,6 +78,69 @@ final class BrowserPresentationTests: XCTestCase {
         XCTAssertNil(presentation.fallbackBrowser)
     }
 
+    func testOptimisticSuccessUsesOptimisticCurrentBrowserCopy() {
+        let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
+        let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
+        let liveSnapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: chrome,
+            currentHTTPSHandler: chrome,
+            httpCandidates: [safari, chrome],
+            httpsCandidates: [safari, chrome],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_200_350)
+        )
+
+        let presentation = BrowserPresentation(
+            snapshot: liveSnapshot,
+            lastSwitchResult: .optimisticSuccess(
+                target: BrowserSwitchTarget(candidate: .fixture(from: chrome, supportedSchemes: [.http, .https])),
+                optimisticSnapshot: liveSnapshot
+            ),
+            lastCoherentBrowser: safari,
+            preferOptimisticPostSwitch: true,
+            switchPhase: .success,
+            successState: .updated(browserName: "Google Chrome")
+        )
+
+        XCTAssertEqual(presentation.currentBrowser?.application, chrome)
+        XCTAssertEqual(presentation.currentBrowserSource, .optimisticPostSwitch)
+        XCTAssertEqual(presentation.settingsHelperText, "The app is refreshing browser state in the background.")
+        XCTAssertEqual(presentation.currentInspectionSummaryText, "Showing the requested browser while background refresh catches up.")
+    }
+
+    func testOptimisticVerificationWarningKeepsOptimisticSelectionWithoutAttentionState() {
+        let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
+        let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
+        let projectedSnapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: chrome,
+            currentHTTPSHandler: chrome,
+            httpCandidates: [safari, chrome],
+            httpsCandidates: [safari, chrome],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_200_351)
+        )
+
+        let presentation = BrowserPresentation(
+            snapshot: projectedSnapshot,
+            lastSwitchResult: .optimisticSuccess(
+                target: BrowserSwitchTarget(candidate: .fixture(from: chrome, supportedSchemes: [.http, .https])),
+                optimisticSnapshot: projectedSnapshot
+            ),
+            lastCoherentBrowser: safari,
+            optimisticVerificationMessage: "The browser switch was submitted, but verification has not caught up yet.",
+            preferOptimisticPostSwitch: true,
+            switchPhase: .success,
+            successState: .none
+        )
+
+        XCTAssertEqual(presentation.currentBrowser?.application, chrome)
+        XCTAssertEqual(presentation.currentBrowserSource, .optimisticPostSwitch)
+        XCTAssertEqual(presentation.userVisibleStatus, .idle)
+        XCTAssertFalse(presentation.showRefreshInMenu)
+        XCTAssertEqual(
+            presentation.settingsHelperText,
+            "The browser switch was submitted, but verification has not caught up yet."
+        )
+    }
+
     func testIncoherentLiveSnapshotFallsBackToLastCoherentBrowserWithoutClaimingLiveCurrentBrowser() {
         let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
         let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
@@ -260,12 +323,93 @@ final class BrowserPresentationTests: XCTestCase {
 
         XCTAssertEqual(stalePresentation.currentBrowserSource, .staleFallback)
         XCTAssertNil(stalePresentation.selectedActionableBrowserID)
+        XCTAssertEqual(
+            stalePresentation.candidates.first(where: { $0.candidate.applicationURL == safari.applicationURL })?.actionState,
+            .switchable
+        )
 
         XCTAssertEqual(unresolvedPresentation.currentBrowserSource, .none)
         XCTAssertNil(unresolvedPresentation.selectedActionableBrowserID)
 
         XCTAssertEqual(nonActionablePresentation.currentBrowserSource, .liveSnapshot)
         XCTAssertNil(nonActionablePresentation.selectedActionableBrowserID)
+    }
+
+    func testSelectedActionableBrowserIDUsesTrustedStalePostSwitchSelectionWhenRequestedBrowserMatchesFallback() throws {
+        let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
+        let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
+        let firefox = BrowserApplication.fixture(bundleIdentifier: "org.mozilla.firefox", displayName: "Firefox", path: "/Applications/Firefox.app")
+
+        let staleSnapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: safari,
+            currentHTTPSHandler: firefox,
+            httpCandidates: [safari, chrome, firefox],
+            httpsCandidates: [safari, chrome, firefox],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_200_595)
+        )
+
+        let presentation = BrowserPresentation(
+            snapshot: staleSnapshot,
+            lastSwitchResult: .verifiedSuccess(
+                target: BrowserSwitchTarget(candidate: .fixture(from: chrome, supportedSchemes: [.http, .https])),
+                verifiedSnapshot: BrowserDiscoverySnapshot.normalized(
+                    currentHTTPHandler: chrome,
+                    currentHTTPSHandler: chrome,
+                    httpCandidates: [safari, chrome, firefox],
+                    httpsCandidates: [safari, chrome, firefox],
+                    refreshedAt: Date(timeIntervalSince1970: 1_710_200_596)
+                )
+            ),
+            lastCoherentBrowser: chrome,
+            switchPhase: .success,
+            successState: .none
+        )
+
+        let chromeRow = try XCTUnwrap(presentation.candidates.first(where: { $0.candidate.applicationURL == chrome.applicationURL }))
+
+        XCTAssertEqual(presentation.currentBrowser?.application, chrome)
+        XCTAssertEqual(presentation.currentBrowserSource, .staleFallback)
+        XCTAssertEqual(chromeRow.actionState, .trustedSelection)
+        XCTAssertEqual(presentation.selectedActionableBrowserID, chromeRow.candidate.id)
+    }
+
+    func testLiveSnapshotClearsTrustedStaleSelectionWhenSystemStateDisagrees() throws {
+        let safari = BrowserApplication.fixture(bundleIdentifier: "com.apple.Safari", displayName: "Safari", path: "/Applications/Safari.app")
+        let chrome = BrowserApplication.fixture(bundleIdentifier: "com.google.Chrome", displayName: "Google Chrome", path: "/Applications/Google Chrome.app")
+
+        let liveSnapshot = BrowserDiscoverySnapshot.normalized(
+            currentHTTPHandler: safari,
+            currentHTTPSHandler: safari,
+            httpCandidates: [safari, chrome],
+            httpsCandidates: [safari, chrome],
+            refreshedAt: Date(timeIntervalSince1970: 1_710_200_597)
+        )
+
+        let presentation = BrowserPresentation(
+            snapshot: liveSnapshot,
+            lastSwitchResult: .verifiedSuccess(
+                target: BrowserSwitchTarget(candidate: .fixture(from: chrome, supportedSchemes: [.http, .https])),
+                verifiedSnapshot: BrowserDiscoverySnapshot.normalized(
+                    currentHTTPHandler: chrome,
+                    currentHTTPSHandler: chrome,
+                    httpCandidates: [safari, chrome],
+                    httpsCandidates: [safari, chrome],
+                    refreshedAt: Date(timeIntervalSince1970: 1_710_200_598)
+                )
+            ),
+            lastCoherentBrowser: chrome,
+            switchPhase: .success,
+            successState: .none
+        )
+
+        let safariRow = try XCTUnwrap(presentation.candidates.first(where: { $0.candidate.applicationURL == safari.applicationURL }))
+        let chromeRow = try XCTUnwrap(presentation.candidates.first(where: { $0.candidate.applicationURL == chrome.applicationURL }))
+
+        XCTAssertEqual(presentation.currentBrowser?.application, safari)
+        XCTAssertEqual(presentation.currentBrowserSource, .liveSnapshot)
+        XCTAssertEqual(safariRow.actionState, .currentSelection)
+        XCTAssertEqual(chromeRow.actionState, .switchable)
+        XCTAssertEqual(presentation.selectedActionableBrowserID, safariRow.candidate.id)
     }
 
     func testInformationalAppsCanBeMarkedNonActionableEvenWithBundleIdentifierAndBothSchemes() throws {
