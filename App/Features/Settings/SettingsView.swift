@@ -18,7 +18,9 @@ struct SettingsView: View {
     var body: some View {
         Form {
             browserSection
-            launchAtLoginSection
+            if launchAtLoginService.model.isVisible {
+                launchAtLoginSection
+            }
             refreshSection
             switchModeSection
             logsSection

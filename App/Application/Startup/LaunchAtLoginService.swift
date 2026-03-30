@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import Security
 import ServiceManagement
 
 protocol LaunchAtLoginControlling {
@@ -8,8 +9,18 @@ protocol LaunchAtLoginControlling {
     func unregister() async throws
 }
 
+protocol LaunchAtLoginEnvironmentProbing {
+    func distribution() async -> LaunchAtLoginService.Distribution
+}
+
 @MainActor
 final class LaunchAtLoginService: ObservableObject {
+    enum Distribution: Equatable {
+        case xcodeDevelopmentRun
+        case supportedInstalledBuild
+        case unsupportedDistribution
+    }
+
     enum ControllerStatus: Equatable {
         case enabled
         case notRegistered
@@ -26,6 +37,7 @@ final class LaunchAtLoginService: ObservableObject {
     }
 
     struct Model: Equatable {
+        var isVisible = true
         var resolvedStatus: ResolvedStatus?
         var isRefreshing = false
         var isApplyingChange = false
@@ -40,7 +52,7 @@ final class LaunchAtLoginService: ObservableObject {
         }
 
         var canToggle: Bool {
-            guard !isApplyingChange, let resolvedStatus else {
+            guard isVisible, !isApplyingChange, let resolvedStatus else {
                 return false
             }
 
@@ -53,21 +65,34 @@ final class LaunchAtLoginService: ObservableObject {
         }
 
         var canRetry: Bool {
-            !isApplyingChange && (errorMessage != nil || resolvedStatus == .unavailable || resolvedStatus == .approvalRequired)
+            isVisible && !isApplyingChange && (
+                errorMessage != nil
+                    || resolvedStatus == .unavailable
+                    || resolvedStatus == .approvalRequired
+            )
         }
 
         var needsAttention: Bool {
-            errorMessage != nil || resolvedStatus == .unavailable || resolvedStatus == .approvalRequired
+            isVisible && (
+                errorMessage != nil
+                || resolvedStatus == .unavailable
+                || resolvedStatus == .approvalRequired
+            )
         }
     }
 
     @Published private(set) var model = Model()
 
     private let controller: any LaunchAtLoginControlling
+    private let environmentProbe: any LaunchAtLoginEnvironmentProbing
     private var hasBootstrapped = false
 
-    init(controller: any LaunchAtLoginControlling = SystemLaunchAtLoginController()) {
+    init(
+        controller: any LaunchAtLoginControlling = SystemLaunchAtLoginController(),
+        environmentProbe: any LaunchAtLoginEnvironmentProbing = SystemLaunchAtLoginEnvironmentProbe()
+    ) {
         self.controller = controller
+        self.environmentProbe = environmentProbe
     }
 
     func bootstrapIfNeeded() async {
@@ -85,16 +110,26 @@ final class LaunchAtLoginService: ObservableObject {
         }
 
         let preservedStatus = model.resolvedStatus
+        let isVisible = model.isVisible
         let isApplyingChange = model.isApplyingChange
         model = Model(
+            isVisible: isVisible,
             resolvedStatus: preservedStatus,
             isRefreshing: true,
             isApplyingChange: isApplyingChange,
             errorMessage: model.errorMessage
         )
 
+        let distribution = await environmentProbe.distribution()
+        guard distribution != .unsupportedDistribution else {
+            model = Model(isVisible: false)
+            return
+        }
+
+        let status = await controller.currentStatus()
         model = Model(
-            resolvedStatus: map(await controller.currentStatus()),
+            isVisible: true,
+            resolvedStatus: map(status),
             isRefreshing: false,
             isApplyingChange: false,
             errorMessage: nil
@@ -132,14 +167,18 @@ final class LaunchAtLoginService: ObservableObject {
                 try await controller.unregister()
             }
 
+            let status = await controller.currentStatus()
+
             model = Model(
-                resolvedStatus: map(await controller.currentStatus()),
+                isVisible: model.isVisible,
+                resolvedStatus: map(status),
                 isRefreshing: false,
                 isApplyingChange: false,
                 errorMessage: nil
             )
         } catch {
             model = Model(
+                isVisible: model.isVisible,
                 resolvedStatus: resolvedStatus,
                 isRefreshing: false,
                 isApplyingChange: false,
@@ -184,5 +223,53 @@ struct SystemLaunchAtLoginController: LaunchAtLoginControlling {
 
     func unregister() async throws {
         try await SMAppService.mainApp.unregister()
+    }
+}
+
+struct SystemLaunchAtLoginEnvironmentProbe: LaunchAtLoginEnvironmentProbing {
+    func distribution() async -> LaunchAtLoginService.Distribution {
+        let bundlePath = Bundle.main.bundleURL.resolvingSymlinksInPath().path
+
+        if isXcodeDevelopmentRun(bundlePath: bundlePath) {
+            return .xcodeDevelopmentRun
+        }
+
+        if isSupportedInstallLocation(bundlePath: bundlePath),
+           hasSupportedSigningIdentity(bundleURL: Bundle.main.bundleURL) {
+            return .supportedInstalledBuild
+        }
+
+        return .unsupportedDistribution
+    }
+
+    private func hasSupportedSigningIdentity(bundleURL: URL) -> Bool {
+        var staticCode: SecStaticCode?
+        let createStatus = SecStaticCodeCreateWithPath(bundleURL as CFURL, [], &staticCode)
+        guard createStatus == errSecSuccess, let staticCode else {
+            return false
+        }
+
+        var signingInformation: CFDictionary?
+        let copyStatus = SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &signingInformation)
+        guard copyStatus == errSecSuccess,
+              let signingInfo = signingInformation as? [String: Any]
+        else {
+            return false
+        }
+
+        let teamIdentifier = signingInfo[kSecCodeInfoTeamIdentifier as String] as? String
+        return teamIdentifier?.isEmpty == false
+    }
+
+    private func isSupportedInstallLocation(bundlePath: String) -> Bool {
+        let normalizedPath = URL(fileURLWithPath: bundlePath).standardizedFileURL.path
+        return normalizedPath == "/Applications/DefaultBrowserSwitcher.app"
+            || normalizedPath.hasPrefix("/Applications/")
+    }
+
+    private func isXcodeDevelopmentRun(bundlePath: String) -> Bool {
+        let normalizedPath = URL(fileURLWithPath: bundlePath).standardizedFileURL.path
+        return normalizedPath.contains("/DerivedData/")
+            || normalizedPath.contains("/Build/Products/")
     }
 }
