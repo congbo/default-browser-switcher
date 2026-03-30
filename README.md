@@ -10,6 +10,10 @@
 
 </div>
 
+<p align="center">
+  <img src="docs/images/menu-bar-runtime.png" alt="Menu bar runtime screenshot" width="360" />
+</p>
+
 ## Why This Exists
 
 Modern Mac setups rarely revolve around a single browser anymore. One browser is where work accounts stay signed in, another is where a project already has the right tabs open, another feels better for testing, and another is simply the one you want for the next few hours. Once that becomes normal, changing the default browser stops being an occasional setup task and starts becoming a small but annoying interruption.
