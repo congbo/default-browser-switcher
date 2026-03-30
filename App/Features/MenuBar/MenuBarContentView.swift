@@ -20,7 +20,7 @@ struct MenuBarContentView: View {
 
             Divider()
 
-            Button(String(localized: "menu.refresh")) {
+            Button(AppStrings.Menu.refresh) {
                 Task {
                     await store.refresh()
                 }
@@ -35,7 +35,7 @@ struct MenuBarContentView: View {
 
             Divider()
 
-            Button(String(localized: "menu.quit")) {
+            Button(AppStrings.Menu.quit) {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q")
@@ -71,11 +71,11 @@ struct MenuBarContentView: View {
     private var settingsButton: some View {
         if #available(macOS 14.0, *) {
             SettingsLink {
-                Text(String(localized: "menu.settings"))
+                Text(AppStrings.Menu.settings)
             }
             .keyboardShortcut(",", modifiers: .command)
         } else {
-            Button(String(localized: "menu.settings")) {
+            Button(AppStrings.Menu.settings) {
                 NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
                 NSApp.activate(ignoringOtherApps: true)
             }

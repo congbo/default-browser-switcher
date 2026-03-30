@@ -623,7 +623,7 @@ final class BrowserDiscoveryStore: ObservableObject {
                 lastErrorMessage = nil
                 prefersVerifiedPostSwitchPresentation = false
                 prefersOptimisticPostSwitchPresentation = true
-                optimisticVerificationMessage = String(localized: "settings.optimisticVerification.unconfirmed")
+                optimisticVerificationMessage = AppStrings.Verification.optimisticUnconfirmed
                 appendLog(
                     level: .warning,
                     stage: .verification,
@@ -636,7 +636,7 @@ final class BrowserDiscoveryStore: ObservableObject {
             lastErrorMessage = nil
             prefersVerifiedPostSwitchPresentation = false
             prefersOptimisticPostSwitchPresentation = true
-            optimisticVerificationMessage = String(localized: "settings.optimisticVerification.unconfirmed")
+            optimisticVerificationMessage = AppStrings.Verification.optimisticUnconfirmed
             appendLog(
                 level: .error,
                 stage: .verification,
@@ -702,7 +702,7 @@ final class BrowserDiscoveryStore: ObservableObject {
             lastErrorMessage = nil
             prefersVerifiedPostSwitchPresentation = false
             prefersOptimisticPostSwitchPresentation = true
-            optimisticVerificationMessage = String(localized: "settings.optimisticVerification.unconfirmed")
+            optimisticVerificationMessage = AppStrings.Verification.optimisticUnconfirmed
             appendLog(
                 level: .warning,
                 stage: .verification,

@@ -35,7 +35,7 @@ struct SettingsView: View {
 
     private var browserSection: some View {
         Section {
-            LabeledContent(String(localized: "settings.defaultBrowser")) {
+            LabeledContent(AppStrings.Settings.defaultBrowser) {
                 browserPicker
             }
         } footer: {
@@ -56,7 +56,7 @@ struct SettingsView: View {
         Section {
             Toggle(isOn: launchAtLoginBinding) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(String(localized: "settings.launchAtLogin.section"))
+                    Text(AppStrings.Settings.launchAtLoginSection)
 
                     Text(verbatim: launchAtLoginStatusText)
                         .font(.callout)
@@ -91,16 +91,16 @@ struct SettingsView: View {
         Section {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(String(localized: "settings.refresh.section"))
+                    Text(AppStrings.Settings.refreshSection)
 
-                    Text(String(localized: "settings.refresh.description"))
+                    Text(AppStrings.Settings.refreshDescription)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer(minLength: 16)
 
-                Button(String(localized: "settings.refresh")) {
+                Button(AppStrings.Settings.refresh) {
                     Task {
                         await store.refresh()
                     }
@@ -113,22 +113,22 @@ struct SettingsView: View {
     private var logsSection: some View {
         Section {
             if reversedLogEntries.isEmpty {
-                Text(String(localized: "settings.logs.empty"))
+                Text(AppStrings.Settings.logsEmpty)
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(reversedLogEntries) { entry in
                     logRow(for: entry)
                 }
-            }
+        }
         } header: {
-            Text(String(localized: "settings.logs"))
+            Text(AppStrings.Settings.logs)
         }
     }
 
     private var switchModeSection: some View {
         Section {
-            LabeledContent(String(localized: "settings.switchMode.label")) {
-                Picker(String(localized: "settings.switchMode.label"), selection: switchModeBinding) {
+            LabeledContent(AppStrings.Settings.switchModeLabel) {
+                Picker(AppStrings.Settings.switchModeLabel, selection: switchModeBinding) {
                     ForEach(BrowserSwitchMode.allCases) { mode in
                         Text(verbatim: title(for: mode))
                             .tag(mode)
@@ -139,10 +139,10 @@ struct SettingsView: View {
                 .frame(width: Layout.controlColumnWidth, alignment: .trailing)
             }
         } header: {
-            Text(String(localized: "settings.switchMode.section"))
+            Text(AppStrings.Settings.switchModeSection)
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
-                Text(String(localized: "settings.switchMode.description"))
+                Text(AppStrings.Settings.switchModeDescription)
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
@@ -154,7 +154,7 @@ struct SettingsView: View {
     }
 
     private var browserPicker: some View {
-        Picker(String(localized: "settings.defaultBrowser"), selection: pickerSelection) {
+        Picker(AppStrings.Settings.defaultBrowser, selection: pickerSelection) {
             if presentation.selectedActionableBrowserID == nil {
                 Text(verbatim: presentation.settingsPickerPlaceholder)
                     .tag(Optional<String>.none)
@@ -209,18 +209,18 @@ struct SettingsView: View {
     private func title(for mode: BrowserSwitchMode) -> String {
         switch mode {
         case .launchServicesDirect:
-            return String(localized: "settings.switchMode.option.launchServicesDirect")
+            return AppStrings.SwitchMode.launchServicesDirect
         case .systemPrompt:
-            return String(localized: "settings.switchMode.option.systemPrompt")
+            return AppStrings.SwitchMode.systemPrompt
         }
     }
 
     private func detail(for mode: BrowserSwitchMode) -> String {
         switch mode {
         case .launchServicesDirect:
-            return String(localized: "settings.switchMode.detail.launchServicesDirect")
+            return AppStrings.SwitchMode.launchServicesDirectDetail
         case .systemPrompt:
-            return String(localized: "settings.switchMode.detail.systemPrompt")
+            return AppStrings.SwitchMode.systemPromptDetail
         }
     }
 
@@ -241,25 +241,25 @@ struct SettingsView: View {
 
     private var launchAtLoginStatusText: String {
         if launchAtLoginService.model.isLoading || launchAtLoginService.model.isRefreshing {
-            return String(localized: "settings.launchAtLogin.loading")
+            return AppStrings.LaunchAtLogin.loading
         }
 
         switch launchAtLoginService.model.resolvedStatus {
         case .enabled?:
-            return String(localized: "settings.launchAtLogin.enabled")
+            return AppStrings.LaunchAtLogin.enabled
         case .disabled?:
-            return String(localized: "settings.launchAtLogin.disabled")
+            return AppStrings.LaunchAtLogin.disabled
         case .unavailable?:
-            return String(localized: "settings.launchAtLogin.unavailable")
+            return AppStrings.LaunchAtLogin.unavailable
         case .approvalRequired?:
-            return String(localized: "settings.launchAtLogin.approvalRequired")
+            return AppStrings.LaunchAtLogin.approvalRequired
         case nil:
-            return String(localized: "settings.launchAtLogin.loading")
+            return AppStrings.LaunchAtLogin.loading
         }
     }
 
     private var launchAtLoginRefreshTitle: String {
-        String(localized: launchAtLoginService.model.canRetry ? "settings.launchAtLogin.retry" : "settings.launchAtLogin.refresh")
+        launchAtLoginService.model.canRetry ? AppStrings.LaunchAtLogin.retry : AppStrings.LaunchAtLogin.refresh
     }
 
     private var reversedLogEntries: [BrowserSwitchLogEntry] {
@@ -297,22 +297,22 @@ struct SettingsView: View {
     private func logLevelTitle(for level: BrowserSwitchLogEntry.Level) -> String {
         switch level {
         case .info:
-            return String(localized: "settings.logs.level.info")
+            return AppStrings.Logs.info
         case .warning:
-            return String(localized: "settings.logs.level.warning")
+            return AppStrings.Logs.warning
         case .error:
-            return String(localized: "settings.logs.level.error")
+            return AppStrings.Logs.error
         }
     }
 
     private func logStageTitle(for stage: BrowserSwitchLogEntry.Stage) -> String {
         switch stage {
         case .refresh:
-            return String(localized: "settings.logs.stage.refresh")
+            return AppStrings.Logs.refresh
         case .switching:
-            return String(localized: "settings.logs.stage.switch")
+            return AppStrings.Logs.switching
         case .verification:
-            return String(localized: "settings.logs.stage.verification")
+            return AppStrings.Logs.verification
         }
     }
 
