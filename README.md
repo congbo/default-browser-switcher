@@ -37,6 +37,24 @@ Open `Settings…` from the menu bar to manage the app.
 
 If you want to change the implementation later, open `Settings…` from the menu bar and switch the `Switch mode` picker.
 
+## 🛠️ Troubleshooting
+
+### macOS says the app is damaged and can't be opened?
+
+Because of macOS security protections, apps downloaded outside the App Store can sometimes trigger this warning. You can fix it with either of the options below:
+
+1. `Terminal fix` (recommended)
+
+   Open Terminal and run:
+
+   ```bash
+   sudo xattr -rd com.apple.quarantine "/Applications/DefaultBrowserSwitcher.app"
+   ```
+
+   > Note: If you renamed the app, update the path in the command to match the actual app name and location.
+
+2. Or open `System Settings` -> `Privacy & Security` and click `Open Anyway`.
+
 ## Development
 
 Build:
