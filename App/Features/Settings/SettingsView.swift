@@ -18,9 +18,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             browserSection
-            if launchAtLoginService.model.isVisible {
-                launchAtLoginSection
-            }
+            launchAtLoginSection
             refreshSection
             switchModeSection
             logsSection
@@ -56,36 +54,19 @@ struct SettingsView: View {
 
     private var launchAtLoginSection: some View {
         Section {
-            Toggle(isOn: launchAtLoginBinding) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(AppStrings.Settings.launchAtLoginSection)
-
-                    Text(verbatim: launchAtLoginStatusText)
-                        .font(.callout)
-                        .foregroundStyle(launchAtLoginService.model.needsAttention ? .orange : .secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                LabeledContent(AppStrings.Settings.launchAtLoginSection) {
+                    Toggle("", isOn: launchAtLoginBinding)
+                        .labelsHidden()
+                        .disabled(!launchAtLoginService.model.canToggle)
                 }
-            }
-            .toggleStyle(.switch)
-            .disabled(!launchAtLoginService.model.canToggle)
 
-            if shouldShowLaunchAtLoginRefreshAction {
-                HStack {
-                    Spacer()
-
-                    Button(launchAtLoginRefreshTitle) {
-                        Task {
-                            await launchAtLoginService.refresh()
-                        }
-                    }
-                    .disabled(launchAtLoginService.model.isRefreshing || launchAtLoginService.model.isApplyingChange)
-                }
+                Text(verbatim: launchAtLoginDetailText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-
-            if let errorMessage = launchAtLoginService.model.errorMessage, !errorMessage.isEmpty {
-                Text(verbatim: errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
+            .padding(.top, 2)
         }
     }
 
@@ -237,31 +218,27 @@ struct SettingsView: View {
         )
     }
 
-    private var shouldShowLaunchAtLoginRefreshAction: Bool {
-        launchAtLoginService.model.needsAttention
-    }
+    private var launchAtLoginDetailText: String {
+        if let errorMessage = launchAtLoginService.model.errorMessage, !errorMessage.isEmpty {
+            return errorMessage
+        }
 
-    private var launchAtLoginStatusText: String {
         if launchAtLoginService.model.isLoading || launchAtLoginService.model.isRefreshing {
             return AppStrings.LaunchAtLogin.loading
         }
 
-        switch launchAtLoginService.model.resolvedStatus {
+        switch launchAtLoginService.model.detailState {
         case .enabled?:
             return AppStrings.LaunchAtLogin.enabled
+        case .neutral?:
+            return AppStrings.LaunchAtLogin.neutral
         case .disabled?:
             return AppStrings.LaunchAtLogin.disabled
-        case .unavailable?:
-            return AppStrings.LaunchAtLogin.unavailable
         case .approvalRequired?:
             return AppStrings.LaunchAtLogin.approvalRequired
         case nil:
             return AppStrings.LaunchAtLogin.loading
         }
-    }
-
-    private var launchAtLoginRefreshTitle: String {
-        launchAtLoginService.model.canRetry ? AppStrings.LaunchAtLogin.retry : AppStrings.LaunchAtLogin.refresh
     }
 
     private var reversedLogEntries: [BrowserSwitchLogEntry] {

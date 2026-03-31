@@ -3,7 +3,7 @@
 1. Export release credentials and run `./Tools/Release/build-release.sh`.
 2. Verify the exported artifact with `./Tools/Release/verify-artifact.sh build/release/exported/DefaultBrowserSwitcher.app build/release/DefaultBrowserSwitcher-macOS-Universal.zip`.
 3. Unzip the final artifact and move `DefaultBrowserSwitcher.app` into `/Applications`.
-4. Launch the installed app outside Xcode. Preview, self-signed, or other unsupported installs should hide `Launch at login`.
+4. Launch the installed app outside Xcode so `Launch at login` is checked under installed-app conditions.
 5. Run `./Tools/Release/verify-installed-app.sh /Applications/DefaultBrowserSwitcher.app`.
 6. Launch the installed app outside Xcode and confirm the browser list loads.
 7. Switch the default browser once from the installed build and confirm macOS updates the system default browser.

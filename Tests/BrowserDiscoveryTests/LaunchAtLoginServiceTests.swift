@@ -3,7 +3,7 @@ import XCTest
 
 @MainActor
 final class LaunchAtLoginServiceTests: XCTestCase {
-    func testRefreshMapsVisibleControllerStatusesToTruthfulStates() async {
+    func testRefreshMapsControllerStatusesToTruthfulStates() async {
         let controller = FakeLaunchAtLoginController(statuses: [
             .enabled,
             .notRegistered,
@@ -11,89 +11,37 @@ final class LaunchAtLoginServiceTests: XCTestCase {
             .notFound,
             .unknown
         ])
-        let environmentProbe = FakeLaunchAtLoginEnvironmentProbe(
-            distributions: [
-                .xcodeDevelopmentRun,
-                .xcodeDevelopmentRun,
-                .xcodeDevelopmentRun,
-                .xcodeDevelopmentRun,
-                .supportedInstalledBuild
-            ]
-        )
-        let service = LaunchAtLoginService(controller: controller, environmentProbe: environmentProbe)
+        let service = LaunchAtLoginService(controller: controller)
 
         await service.refresh()
-        XCTAssertTrue(service.model.isVisible)
         XCTAssertEqual(service.model.resolvedStatus, .enabled)
+        XCTAssertEqual(service.model.detailState, .enabled)
         XCTAssertNil(service.model.errorMessage)
 
         await service.refresh()
-        XCTAssertTrue(service.model.isVisible)
         XCTAssertEqual(service.model.resolvedStatus, .disabled)
+        XCTAssertEqual(service.model.detailState, .disabled)
         XCTAssertNil(service.model.errorMessage)
 
         await service.refresh()
-        XCTAssertTrue(service.model.isVisible)
         XCTAssertEqual(service.model.resolvedStatus, .approvalRequired)
+        XCTAssertEqual(service.model.detailState, .approvalRequired)
         XCTAssertNil(service.model.errorMessage)
 
         await service.refresh()
-        XCTAssertTrue(service.model.isVisible)
-        XCTAssertEqual(service.model.resolvedStatus, .unavailable)
-        XCTAssertNil(service.model.errorMessage)
-
-        await service.refresh()
-        XCTAssertTrue(service.model.isVisible)
-        XCTAssertEqual(service.model.resolvedStatus, .unavailable)
-        XCTAssertNil(service.model.errorMessage)
-    }
-
-    func testRefreshHidesSectionForUnsupportedDistribution() async {
-        let controller = FakeLaunchAtLoginController(statuses: [.notFound])
-        let service = LaunchAtLoginService(
-            controller: controller,
-            environmentProbe: FakeLaunchAtLoginEnvironmentProbe(distributions: [.unsupportedDistribution])
-        )
-
-        await service.refresh()
-
-        XCTAssertFalse(service.model.isVisible)
-        XCTAssertNil(service.model.resolvedStatus)
-        XCTAssertNil(service.model.errorMessage)
-    }
-
-    func testRefreshShowsSectionForXcodeDevelopmentRunEvenWithoutSupportedSigning() async {
-        let controller = FakeLaunchAtLoginController(statuses: [.notFound])
-        let service = LaunchAtLoginService(
-            controller: controller,
-            environmentProbe: FakeLaunchAtLoginEnvironmentProbe(distributions: [.xcodeDevelopmentRun])
-        )
-
-        await service.refresh()
-
-        XCTAssertTrue(service.model.isVisible)
-        XCTAssertEqual(service.model.resolvedStatus, .unavailable)
-    }
-
-    func testRefreshShowsSectionForSupportedInstalledBuild() async {
-        let controller = FakeLaunchAtLoginController(statuses: [.notRegistered])
-        let service = LaunchAtLoginService(
-            controller: controller,
-            environmentProbe: FakeLaunchAtLoginEnvironmentProbe(distributions: [.supportedInstalledBuild])
-        )
-
-        await service.refresh()
-
-        XCTAssertTrue(service.model.isVisible)
         XCTAssertEqual(service.model.resolvedStatus, .disabled)
+        XCTAssertEqual(service.model.detailState, .neutral)
+        XCTAssertNil(service.model.errorMessage)
+
+        await service.refresh()
+        XCTAssertEqual(service.model.resolvedStatus, .disabled)
+        XCTAssertEqual(service.model.detailState, .neutral)
+        XCTAssertNil(service.model.errorMessage)
     }
 
     func testSetEnabledRegistersFromDisabledStateAndPublishesEnabledStatus() async {
         let controller = FakeLaunchAtLoginController(statuses: [.notRegistered, .enabled])
-        let service = LaunchAtLoginService(
-            controller: controller,
-            environmentProbe: FakeLaunchAtLoginEnvironmentProbe(distributions: [.supportedInstalledBuild, .supportedInstalledBuild])
-        )
+        let service = LaunchAtLoginService(controller: controller)
 
         await service.refresh()
         await service.setEnabled(true)
@@ -101,16 +49,29 @@ final class LaunchAtLoginServiceTests: XCTestCase {
         XCTAssertEqual(controller.registerCallCount, 1)
         XCTAssertEqual(controller.unregisterCallCount, 0)
         XCTAssertEqual(service.model.resolvedStatus, .enabled)
+        XCTAssertEqual(service.model.detailState, .enabled)
+        XCTAssertFalse(service.model.isApplyingChange)
+        XCTAssertNil(service.model.errorMessage)
+    }
+
+    func testSetEnabledRegistersFromNotFoundStateAndPublishesEnabledStatus() async {
+        let controller = FakeLaunchAtLoginController(statuses: [.notFound, .enabled])
+        let service = LaunchAtLoginService(controller: controller)
+
+        await service.refresh()
+        await service.setEnabled(true)
+
+        XCTAssertEqual(controller.registerCallCount, 1)
+        XCTAssertEqual(controller.unregisterCallCount, 0)
+        XCTAssertEqual(service.model.resolvedStatus, .enabled)
+        XCTAssertEqual(service.model.detailState, .enabled)
         XCTAssertFalse(service.model.isApplyingChange)
         XCTAssertNil(service.model.errorMessage)
     }
 
     func testSetEnabledUnregistersFromEnabledStateAndPublishesDisabledStatus() async {
         let controller = FakeLaunchAtLoginController(statuses: [.enabled, .notRegistered])
-        let service = LaunchAtLoginService(
-            controller: controller,
-            environmentProbe: FakeLaunchAtLoginEnvironmentProbe(distributions: [.supportedInstalledBuild, .supportedInstalledBuild])
-        )
+        let service = LaunchAtLoginService(controller: controller)
 
         await service.refresh()
         await service.setEnabled(false)
@@ -118,6 +79,7 @@ final class LaunchAtLoginServiceTests: XCTestCase {
         XCTAssertEqual(controller.registerCallCount, 0)
         XCTAssertEqual(controller.unregisterCallCount, 1)
         XCTAssertEqual(service.model.resolvedStatus, .disabled)
+        XCTAssertEqual(service.model.detailState, .disabled)
         XCTAssertFalse(service.model.isApplyingChange)
         XCTAssertNil(service.model.errorMessage)
     }
@@ -127,15 +89,13 @@ final class LaunchAtLoginServiceTests: XCTestCase {
             statuses: [.notRegistered],
             registerError: LaunchAtLoginFixtureError.registerFailed
         )
-        let service = LaunchAtLoginService(
-            controller: controller,
-            environmentProbe: FakeLaunchAtLoginEnvironmentProbe(distributions: [.supportedInstalledBuild])
-        )
+        let service = LaunchAtLoginService(controller: controller)
 
         await service.refresh()
         await service.setEnabled(true)
 
         XCTAssertEqual(service.model.resolvedStatus, .disabled)
+        XCTAssertEqual(service.model.detailState, .disabled)
         XCTAssertEqual(service.model.errorMessage, LaunchAtLoginFixtureError.registerFailed.errorDescription)
         XCTAssertEqual(controller.registerCallCount, 1)
     }
@@ -145,34 +105,24 @@ final class LaunchAtLoginServiceTests: XCTestCase {
             statuses: [.enabled],
             unregisterError: LaunchAtLoginFixtureError.unregisterFailed
         )
-        let service = LaunchAtLoginService(
-            controller: controller,
-            environmentProbe: FakeLaunchAtLoginEnvironmentProbe(distributions: [.supportedInstalledBuild])
-        )
+        let service = LaunchAtLoginService(controller: controller)
 
         await service.refresh()
         await service.setEnabled(false)
 
         XCTAssertEqual(service.model.resolvedStatus, .enabled)
+        XCTAssertEqual(service.model.detailState, .enabled)
         XCTAssertEqual(service.model.errorMessage, LaunchAtLoginFixtureError.unregisterFailed.errorDescription)
         XCTAssertEqual(controller.unregisterCallCount, 1)
     }
 
-    func testSetEnabledIgnoresUnsafeStatesAndDoesNotCallController() async {
-        let controller = FakeLaunchAtLoginController(statuses: [.requiresApproval, .notFound])
-        let service = LaunchAtLoginService(
-            controller: controller,
-            environmentProbe: FakeLaunchAtLoginEnvironmentProbe(distributions: [.supportedInstalledBuild, .xcodeDevelopmentRun])
-        )
+    func testSetEnabledIgnoresRequestsWhenToggleStateIsAlreadyCurrent() async {
+        let controller = FakeLaunchAtLoginController(statuses: [.enabled])
+        let service = LaunchAtLoginService(controller: controller)
 
         await service.refresh()
         await service.setEnabled(true)
-        XCTAssertEqual(service.model.resolvedStatus, .approvalRequired)
-        XCTAssertEqual(controller.registerCallCount, 0)
-
-        await service.refresh()
-        await service.setEnabled(true)
-        XCTAssertEqual(service.model.resolvedStatus, .unavailable)
+        XCTAssertEqual(service.model.resolvedStatus, .enabled)
         XCTAssertEqual(controller.registerCallCount, 0)
     }
 }
@@ -215,26 +165,6 @@ private final class FakeLaunchAtLoginController: LaunchAtLoginControlling {
         if let unregisterError {
             throw unregisterError
         }
-    }
-}
-
-private final class FakeLaunchAtLoginEnvironmentProbe: LaunchAtLoginEnvironmentProbing {
-    private var queuedDistributions: [LaunchAtLoginService.Distribution]
-
-    init(distributions: [LaunchAtLoginService.Distribution]) {
-        queuedDistributions = distributions
-    }
-
-    private func nextDistribution() -> LaunchAtLoginService.Distribution {
-        if queuedDistributions.count > 1 {
-            return queuedDistributions.removeFirst()
-        }
-
-        return queuedDistributions.first ?? .unsupportedDistribution
-    }
-
-    func distribution() async -> LaunchAtLoginService.Distribution {
-        nextDistribution()
     }
 }
 

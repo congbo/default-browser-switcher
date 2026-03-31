@@ -27,12 +27,10 @@ enum AppStrings {
 
     enum LaunchAtLogin {
         static let loading = "Checking login item status..."
-        static let enabled = "Opens automatically when you sign in."
-        static let disabled = "Off until you open the app yourself."
-        static let unavailable = "This Mac can't enable launch at login right now."
-        static let approvalRequired = "Allow this app in System Settings before it can launch at login."
-        static let refresh = "Refresh launch-at-login status"
-        static let retry = "Retry launch-at-login check"
+        static let enabled = "Launch the app automatically when you sign in to macOS."
+        static let neutral = enabled
+        static let disabled = "The app opens manually from your menu bar until launch at login is enabled."
+        static let approvalRequired = "macOS requires approval before this app can launch at login."
     }
 
     enum Logs {

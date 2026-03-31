@@ -5,7 +5,7 @@ This directory contains two distribution tracks for `DefaultBrowserSwitcher`:
 - Formal release: Developer ID signed, notarized, stapled, and suitable for direct-download shipping.
 - Preview release: ad-hoc signed, not notarized, and suitable for local evaluation or clearly labeled GitHub prereleases.
 
-Launch at login is intended for a properly signed app installed in `/Applications`. Unsupported installs, including ad-hoc and self-signed builds, hide the setting instead of showing a recovery prompt.
+Launch at login is exposed by the app in every distribution track. For validation, prefer the installed release build moved into `/Applications`.
 
 ## Choose The Right Track
 
@@ -46,7 +46,7 @@ The preview script:
 - zips the app as `build/preview/DefaultBrowserSwitcher-v<version>-preview.<build>-macOS-Universal.zip`
 - writes `build/preview/preview-manifest.txt`
 
-Preview builds are not expected to support `Launch at login`. They are intentionally ad-hoc signed and should be treated as evaluation builds only.
+Preview builds are intentionally ad-hoc signed and should be treated as evaluation builds only.
 
 Expected preview outputs:
 
@@ -84,9 +84,9 @@ open /tmp/default-browser-switcher-preview-check/DefaultBrowserSwitcher.app
 
 If Finder warns on first launch, use right-click `Open`.
 
-Do not use preview builds to validate `Launch at login`. That setting is hidden for unsupported installs and should be checked only with the formal signed release after the app is installed into `/Applications`.
+Do not use preview builds as the final validation target for `Launch at login`. Check that setting from the installed release build after the app is moved into `/Applications`.
 
-Removing quarantine with `xattr` can help Finder launch a downloaded app, but it does not make an ad-hoc or self-signed build eligible for reliable `Launch at login` behavior.
+Removing quarantine with `xattr` can help Finder launch a downloaded app, but it does not replace normal install and validation of the release build.
 
 ## Publish A Preview Prerelease
 
@@ -139,5 +139,5 @@ export NOTARY_PROFILE="<profile-name>"
 - Preview builds are for evaluation, not trusted distribution.
 - Gatekeeper may warn because preview builds are ad-hoc signed and not notarized.
 - First launch may require right-click `Open`.
-- `Launch at login` is hidden for preview builds and other unsupported installs.
+- `Launch at login` stays visible in preview builds, but formal release installs remain the primary validation target.
 - Use the formal release flow when you need an installable build for broad public distribution.
