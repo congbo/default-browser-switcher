@@ -111,7 +111,7 @@ final class SettingsWindowController {
     func register(window: NSWindow) -> Bool {
         let isNewWindow = settingsWindow !== window
         settingsWindow = window
-        configure(window)
+        configure(window, isNewWindow: isNewWindow)
         return isNewWindow
     }
 
@@ -119,10 +119,22 @@ final class SettingsWindowController {
         bringToFront(window)
     }
 
-    private func configure(_ window: NSWindow) {
+    private func configure(_ window: NSWindow, isNewWindow: Bool = false) {
         window.identifier = windowIdentifier
         window.tabbingMode = .disallowed
-        window.minSize = NSSize(width: 600, height: 460)
+        window.minSize = NSSize(
+            width: SettingsLayoutMetrics.minWindowWidth,
+            height: SettingsLayoutMetrics.minWindowHeight
+        )
+
+        if isNewWindow {
+            window.setContentSize(
+                NSSize(
+                    width: SettingsLayoutMetrics.minWindowWidth,
+                    height: SettingsLayoutMetrics.minWindowHeight
+                )
+            )
+        }
     }
 
     private func bringToFront(_ window: NSWindow) {

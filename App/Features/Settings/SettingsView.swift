@@ -1,11 +1,13 @@
 import AppKit
 import SwiftUI
 
-struct SettingsView: View {
-    private enum Layout {
-        static let controlColumnWidth: CGFloat = 220
-    }
+enum SettingsLayoutMetrics {
+    static let minWindowWidth: CGFloat = 520
+    static let minWindowHeight: CGFloat = 460
+    static let controlColumnWidth: CGFloat = 190
+}
 
+struct SettingsView: View {
     @EnvironmentObject private var store: BrowserDiscoveryStore
     @EnvironmentObject private var iconProvider: BrowserIconProvider
     @EnvironmentObject private var launchAtLoginService: LaunchAtLoginService
@@ -25,7 +27,10 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding(20)
-        .frame(minWidth: 600, minHeight: 460)
+        .frame(
+            minWidth: SettingsLayoutMetrics.minWindowWidth,
+            minHeight: SettingsLayoutMetrics.minWindowHeight
+        )
         .background(SettingsWindowObserver())
         .task {
             await store.bootstrapIfNeeded()
@@ -119,7 +124,7 @@ struct SettingsView: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
-                .frame(width: Layout.controlColumnWidth, alignment: .trailing)
+                .frame(width: SettingsLayoutMetrics.controlColumnWidth, alignment: .trailing)
             }
         } header: {
             Text(AppStrings.Settings.switchModeSection)
@@ -156,7 +161,7 @@ struct SettingsView: View {
         }
         .labelsHidden()
         .pickerStyle(.menu)
-        .frame(width: Layout.controlColumnWidth, alignment: .trailing)
+        .frame(width: SettingsLayoutMetrics.controlColumnWidth, alignment: .trailing)
         .disabled(presentation.isPickerDisabled)
     }
 

@@ -63,7 +63,20 @@ final class SettingsWindowControllerTests: XCTestCase {
             DefaultBrowserSwitcherApp.settingsWindowIdentifier
         )
         XCTAssertEqual(window.tabbingMode, .disallowed)
-        XCTAssertEqual(window.minSize, NSSize(width: 600, height: 460))
+        XCTAssertEqual(
+            window.minSize,
+            NSSize(
+                width: SettingsLayoutMetrics.minWindowWidth,
+                height: SettingsLayoutMetrics.minWindowHeight
+            )
+        )
+        XCTAssertEqual(
+            window.contentRect(forFrameRect: window.frame).size,
+            NSSize(
+                width: SettingsLayoutMetrics.minWindowWidth,
+                height: SettingsLayoutMetrics.minWindowHeight
+            )
+        )
     }
 
     func testActivateBringsRegisteredWindowToFront() {
